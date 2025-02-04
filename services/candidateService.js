@@ -276,7 +276,7 @@ export const getScheduledInterviewsService = async (candidateId) => {
   try {
     const candidate = await Candidate.findById(candidateId).populate({
       path: "scheduledInterviews.interviewerId",
-      select: "firstName lastName profilePhoto", // Ensure profilePhoto is selected
+      select: "firstName lastName profilePhoto _id", // Ensure profilePhoto is selected
     });
 
     if (!candidate) {
@@ -294,6 +294,8 @@ export const getScheduledInterviewsService = async (candidateId) => {
           : "Interviewer not available";
         const interviewerPhoto = interviewer?.profilePhoto || ""; // Add profilePhoto here
 
+        const interviewerId = interviewer._id;
+
         const date = interview?.date
           ? new Date(interview.date).toLocaleDateString("en-IN")
           : "Date not specified";
@@ -307,6 +309,7 @@ export const getScheduledInterviewsService = async (candidateId) => {
 
         return {
           id: interview?._id || "N/A",
+          interviewerId: interviewerId,
           interviewerName: interviewerName,
           interviewerPhoto: interviewerPhoto, // Include profile photo in response
           date: date,
