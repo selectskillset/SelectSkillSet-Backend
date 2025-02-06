@@ -21,16 +21,32 @@ import { Candidate } from "../model/candidateModel.js";
 export const registerCandidate = async (req, res) => {
   try {
     const { email } = req.body;
+
+    // Check if the email already exists in the database
+    const existingCandidate = await Candidate.findOne({ email });
+    if (existingCandidate) {
+      return res.status(400).json({
+        success: false,
+        message: "This email is already registered. Please Login",
+      });
+    }
+
+    // Generate OTP and send it to the email
     const otp = generateOtp();
     await sendOtp(email, otp);
 
+    // Return success response
     return res.status(200).json({
       success: true,
       message:
         "OTP sent to your email. Please verify to complete registration.",
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error during candidate registration:", error);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while processing your request.",
+    });
   }
 };
 
