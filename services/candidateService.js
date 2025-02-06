@@ -71,10 +71,9 @@ export const updateProfile = async (candidateId, data, res) => {
     "lastName",
     "jobTitle",
     "location",
-    "mobile",
+    "phoneNumber",
     "profilePhoto",
     "linkedIn",
-    "countryCode",
     "skills",
     "resume",
   ];

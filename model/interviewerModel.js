@@ -6,8 +6,8 @@ const interviewerSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   location: { type: String },
-  mobile: { type: String },
-  countryCode: { type: String },
+  phoneNumber: { type: String, required: true},
+ 
   jobTitle: { type: String },
   profilePhoto: {
     type: String,

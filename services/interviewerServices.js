@@ -94,11 +94,10 @@ export const updateInterviewerProfileServices = async (
       "lastName",
       "jobTitle",
       "location",
-      "mobile",
+      "phoneNumber",
       "profilePhoto",
       "experience",
       "price",
-      "countryCode",
       "skills",
     ];
 

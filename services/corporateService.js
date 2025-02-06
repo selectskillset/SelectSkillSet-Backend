@@ -93,7 +93,7 @@ export const getCandidatesByRatingService = async () => {
   return await Candidate.find()
     .sort({ "statistics.averageRating": -1 })
     .select(
-      "firstName lastName email countryCode mobile location profilePhoto linkedIn skills statistics.averageRating resume"
+      "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
     );
 };
 
@@ -101,7 +101,7 @@ export const filterCandidatesByJDService = async (skillsRequired) => {
     return await Candidate.find({
       skills: { $in: skillsRequired },
     }).select(
-      "firstName lastName email mobile location profilePhoto linkedIn skills statistics.averageRating resume"
+      "firstName lastName email phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
     );
   };
   

@@ -134,7 +134,7 @@ export const getInterviewerProfile = async (req, res) => {
 
   try {
     const interviewer = await Interviewer.findById(id).select(
-      "firstName lastName email location countryCode jobTitle profilePhoto experience totalInterviews price skills availability dates statistics.averageRating statistics.totalFeedbackCount statistics.feedbacks"
+      "firstName lastName email location jobTitle profilePhoto experience totalInterviews price skills availability dates statistics.averageRating statistics.totalFeedbackCount statistics.feedbacks"
     );
 
     if (!interviewer) {
@@ -147,7 +147,7 @@ export const getInterviewerProfile = async (req, res) => {
       lastName: interviewer.lastName,
       email: interviewer.email,
       location: interviewer.location || "N/A",
-      countryCode: interviewer.countryCode || "N/A",
+     
       jobTitle: interviewer.jobTitle || "N/A",
       profilePhoto: interviewer.profilePhoto || "https://default-profile-image.com",
       experience: interviewer.experience || "Not specified",

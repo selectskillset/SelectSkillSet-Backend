@@ -6,8 +6,7 @@ const candidateSchema = new mongoose.Schema(
     lastName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    mobile: { type: String },
-    countryCode: { type: String },
+    phoneNumber: { type: String, required: true },
     jobTitle: { type: String },
     location: { type: String },
     profilePhoto: {

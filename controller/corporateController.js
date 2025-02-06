@@ -147,7 +147,7 @@ export const getBookmarkedCandidates = async (req, res) => {
     const corporateId = req.user.id;
     const corporate = await Corporate.findById(corporateId).populate({
       path: "bookmarks.candidateId",
-      select: "firstName lastName email mobile location skills profilePhoto ",
+      select: "firstName lastName email phoneNumber location skills profilePhoto ",
     });
 
     if (!corporate) {
