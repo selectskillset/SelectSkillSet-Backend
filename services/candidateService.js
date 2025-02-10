@@ -30,12 +30,18 @@ export const registerCandidate = async ({ email, password, ...rest }) => {
 
 export const loginCandidate = async (data, res) => {
   const { email, password } = data;
-
   const candidate = await Candidate.findOne({ email });
+
   if (!candidate) {
     return res
       .status(404)
       .json({ success: false, message: "Candidate not found" });
+  }
+
+  if (candidate.isSuspended) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Your account has been suspended" });
   }
 
   const isPasswordValid = await bcrypt.compare(password, candidate.password);
@@ -47,7 +53,6 @@ export const loginCandidate = async (data, res) => {
 
   const token = generateToken(candidate);
   const { password: _, ...candidateDetails } = candidate.toObject();
-
   return res.status(200).json({
     success: true,
     token,
@@ -149,31 +154,63 @@ export const importFromLinkedIn = async (candidateId, linkedInData, res) => {
 
 export const getInterviewers = async (res) => {
   try {
+    // Fetch all interviewers with the required fields
     const interviewers = await Interviewer.find().select(
-      "firstName experience availability totalInterviews price profilePhoto jobTitle"
+      "firstName experience availability totalInterviews price profilePhoto jobTitle bookedSlots"
     );
 
-    const filteredInterviewers = interviewers.filter((interviewer) => {
-      return (
-        interviewer.experience &&
-        interviewer.availability &&
-        interviewer.availability.dates &&
-        interviewer.availability.dates.length > 0 &&
-        interviewer.price &&
-        interviewer.jobTitle
-      );
-    });
+    // Filter interviewers based on complete information
+    const filteredInterviewers = interviewers
+      .filter((interviewer) => {
+        return (
+          interviewer.experience &&
+          interviewer.availability &&
+          interviewer.availability.dates &&
+          interviewer.availability.dates.length > 0 &&
+          interviewer.price &&
+          interviewer.jobTitle
+        );
+      })
+      .map((interviewer) => {
+        // Remove booked slots from the availability dates
+        const updatedAvailability = {
+          ...interviewer.availability,
+          dates: interviewer.availability.dates.filter((slot) => {
+            // Exclude slots that are in the `bookedSlots` array
+            return !interviewer.bookedSlots?.some((bookedSlot) => {
+              return (
+                bookedSlot.date === slot.date &&
+                bookedSlot.from === slot.from &&
+                bookedSlot.to === slot.to
+              );
+            });
+          }),
+        };
 
+        // Return the interviewer with updated availability
+        return {
+          ...interviewer.toObject(), // Convert Mongoose document to plain object
+          availability: updatedAvailability,
+        };
+      })
+      .filter((interviewer) => {
+        // Ensure the interviewer still has available slots after filtering
+        return interviewer.availability.dates.length > 0;
+      });
+
+    // If no interviewers are left after filtering, return a 404 response
     if (filteredInterviewers.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No interviewers found with complete information",
+        message: "No interviewers found with available slots",
       });
     }
 
-    return res
-      .status(200)
-      .json({ success: true, interviewers: filteredInterviewers });
+    // Return the filtered list of interviewers
+    return res.status(200).json({
+      success: true,
+      interviewers: filteredInterviewers,
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -187,6 +224,7 @@ export const scheduleInterview = async (candidateId, data, res) => {
   try {
     const { interviewerId, date, price, from, to } = data;
 
+    // Validate required fields
     if (!interviewerId || !date || !price || !from || !to) {
       return res.status(400).json({
         success: false,
@@ -194,6 +232,7 @@ export const scheduleInterview = async (candidateId, data, res) => {
       });
     }
 
+    // Find the candidate
     const candidate = await Candidate.findById(candidateId);
     if (!candidate) {
       return res
@@ -201,13 +240,13 @@ export const scheduleInterview = async (candidateId, data, res) => {
         .json({ success: false, message: "Candidate not found" });
     }
 
+    // Check if the candidate has already scheduled an interview on this date with the same interviewer
     const isAlreadyScheduled = candidate.scheduledInterviews.some(
       (interview) =>
         new Date(interview.date).toISOString() ===
           new Date(date).toISOString() &&
         interview.interviewerId.toString() === interviewerId
     );
-
     if (isAlreadyScheduled) {
       return res.status(400).json({
         success: false,
@@ -216,27 +255,27 @@ export const scheduleInterview = async (candidateId, data, res) => {
       });
     }
 
+    // Create the interview request ID
     const interviewRequestId = new mongoose.Types.ObjectId();
 
-    // Create the interview date and get the day name
+    // Format the interview date and time
     const interviewDate = new Date(date);
     const dayName = interviewDate.toLocaleDateString("en-US", {
       weekday: "long",
     });
 
-    // Keep the original format of the time, no conversion
-    const interviewDetails = {
+    // Add the interview details to the candidate's scheduled interviews
+    candidate.scheduledInterviews.push({
       _id: interviewRequestId,
       interviewerId,
-      date: `${dayName}, ${interviewDate.toLocaleDateString("en-US")}`, // Add day name without changing date format
+      date: `${dayName}, ${interviewDate.toLocaleDateString("en-US")}`,
       price,
-      from, // Keep original 'from' time (12-hour format)
-      to, // Keep original 'to' time (12-hour format)
-    };
-
-    candidate.scheduledInterviews.push(interviewDetails);
+      from,
+      to,
+    });
     await candidate.save();
 
+    // Find the interviewer
     const interviewer = await Interviewer.findById(interviewerId);
     if (!interviewer) {
       return res
@@ -244,20 +283,24 @@ export const scheduleInterview = async (candidateId, data, res) => {
         .json({ success: false, message: "Interviewer not found" });
     }
 
-    // Store the interview details for the interviewer
+    // Add the booked slot to the interviewer's `bookedSlots` array
+    interviewer.bookedSlots.push({ date, from, to });
+    await interviewer.save();
+
+    // Add the interview request details to the interviewer's `interviewRequests` array
     interviewer.interviewRequests.push({
       _id: interviewRequestId,
       candidateId: candidate._id,
       candidateName: `${candidate.firstName} ${candidate.lastName}`,
       position: candidate.jobTitle,
-      date: `${dayName}, ${interviewDate.toLocaleDateString("en-US")}`, // Add day name
-      time: `${from} - ${to}`, // Keep original time range
-      from, // Keep original 'from' time
-      to, // Keep original 'to' time
+      date: `${dayName}, ${interviewDate.toLocaleDateString("en-US")}`,
+      time: `${from} - ${to}`,
+      from,
+      to,
     });
-
     await interviewer.save();
 
+    // Return success response
     return res.status(201).json({
       success: true,
       interviewRequestId,

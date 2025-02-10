@@ -5,8 +5,13 @@ import { Candidate } from "../model/candidateModel.js";
 
 export const corporateLoginService = async (email, password) => {
   const corporate = await Corporate.findOne({ email });
+
   if (!corporate) {
     throw new Error("Corporate not found");
+  }
+
+  if (corporate.isSuspended) {
+    throw new Error("Your account has been suspended");
   }
 
   const isPasswordValid = await bcrypt.compare(password, corporate.password);
@@ -15,7 +20,6 @@ export const corporateLoginService = async (email, password) => {
   }
 
   const token = generateToken(corporate);
-
   return {
     corporate: {
       id: corporate._id,
@@ -98,10 +102,9 @@ export const getCandidatesByRatingService = async () => {
 };
 
 export const filterCandidatesByJDService = async (skillsRequired) => {
-    return await Candidate.find({
-      skills: { $in: skillsRequired },
-    }).select(
-      "firstName lastName email phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
-    );
-  };
-  
+  return await Candidate.find({
+    skills: { $in: skillsRequired },
+  }).select(
+    "firstName lastName email phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
+  );
+};

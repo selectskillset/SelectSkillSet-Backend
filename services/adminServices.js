@@ -197,3 +197,70 @@ export const getInterviewStatusesService = async () => {
     throw new Error(error.message);
   }
 };
+
+
+// Get One Candidate Service
+export const getOneCandidateService = async (id) => {
+  try {
+    const candidate = await Candidate.findById(id).select(
+      "firstName lastName email phoneNumber linkedIn skills isSuspended jobTitle location profilePhoto resume scheduledInterviews"
+    );
+    return candidate;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// Get One Interviewer Service
+export const getOneInterviewerService = async (id) => {
+  try {
+    const interviewer = await Interviewer.findById(id).select(
+      "firstName lastName phoneNumber totalInterviews price isSuspended email jobTitle location profilePhoto experience skills interviewRequests"
+    );
+    return interviewer;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// Get One Corporate Service
+export const getOneCorporateService = async (id) => {
+  try {
+    const corporate = await Corporate.findById(id).select(
+      "contactName email profilePhoto phoneNumber companyName isSuspended location industry jobDescriptions bookmarks"
+    );
+    return corporate;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// Delete One Candidate Service
+export const deleteOneCandidateService = async (id) => {
+  try {
+    const candidate = await Candidate.findByIdAndDelete(id);
+    return candidate;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// Delete One Interviewer Service
+export const deleteOneInterviewerService = async (id) => {
+  try {
+    const interviewer = await Interviewer.findByIdAndDelete(id);
+    return interviewer;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+// Delete One Corporate Service
+export const deleteOneCorporateService = async (id) => {
+  try {
+    const corporate = await Corporate.findByIdAndDelete(id);
+    return corporate;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};

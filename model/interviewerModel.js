@@ -5,9 +5,9 @@ const interviewerSchema = new mongoose.Schema({
   lastName: { type: String },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  isSuspended: { type: Boolean, default: false },
   location: { type: String },
-  phoneNumber: { type: String, required: true},
- 
+  phoneNumber: { type: String },
   jobTitle: { type: String },
   profilePhoto: {
     type: String,
@@ -42,6 +42,13 @@ const interviewerSchema = new mongoose.Schema({
       },
     ],
   },
+  bookedSlots: [
+    {
+      date: { type: String, required: true },
+      from: { type: String, required: true },
+      to: { type: String, required: true },
+    },
+  ],
   statistics: {
     completedInterviews: { type: Number, default: 0 },
     pendingRequests: { type: Number, default: 0 },

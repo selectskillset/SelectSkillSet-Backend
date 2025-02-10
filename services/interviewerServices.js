@@ -31,12 +31,18 @@ export const registerInterviewerService = async (data, res) => {
 
 export const loginInterviewerService = async (data, res) => {
   const { email, password } = data;
-
   const interviewer = await Interviewer.findOne({ email });
+
   if (!interviewer) {
     return res
       .status(404)
-      .json({ success: false, message: "interviewer not found" });
+      .json({ success: false, message: "Interviewer not found" });
+  }
+
+  if (interviewer.isSuspended) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Your account has been suspended" });
   }
 
   const isPasswordValid = await bcrypt.compare(password, interviewer.password);
@@ -48,7 +54,6 @@ export const loginInterviewerService = async (data, res) => {
 
   const token = generateToken(interviewer);
   const { password: _, ...interviewerDetails } = interviewer.toObject();
-
   return res.status(200).json({
     success: true,
     token,
