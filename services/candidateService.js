@@ -318,7 +318,7 @@ export const getScheduledInterviewsService = async (candidateId) => {
   try {
     const candidate = await Candidate.findById(candidateId).populate({
       path: "scheduledInterviews.interviewerId",
-      select: "firstName lastName profilePhoto _id", // Ensure profilePhoto is selected
+      select: "firstName lastName profilePhoto", // Ensure profilePhoto is selected
     });
 
     if (!candidate) {
@@ -335,14 +335,12 @@ export const getScheduledInterviewsService = async (candidateId) => {
           ? `${interviewer.firstName} ${interviewer.lastName}`
           : "Interviewer not available";
         const interviewerPhoto = interviewer?.profilePhoto || ""; // Add profilePhoto here
-
-        const interviewerId = interviewer._id;
+        const interviewerId = interviewer?._id || "N/A"; // Include interviewerId with null check
 
         const date = interview?.date
           ? new Date(interview.date).toLocaleDateString("en-IN")
           : "Date not specified";
 
-        // Ensure that `from` and `to` are returned even if they are not set
         const from = interview?.from || "Time not specified";
         const to = interview?.to || "Time not specified";
         const status = interview?.status || "Status not specified";
@@ -350,8 +348,8 @@ export const getScheduledInterviewsService = async (candidateId) => {
         console.log("Interview status:", status);
 
         return {
-          id: interview?._id || "N/A",
-          interviewerId: interviewerId,
+          id: interview?._id || "N/A", // Interview ID
+          interviewerId: interviewerId, // Include interviewerId here
           interviewerName: interviewerName,
           interviewerPhoto: interviewerPhoto, // Include profile photo in response
           date: date,
