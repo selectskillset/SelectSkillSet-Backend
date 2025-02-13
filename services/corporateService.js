@@ -44,13 +44,21 @@ export const createCorporateService = async (data) => {
     industry,
   } = data;
 
+  // Validate required fields
+  if (!contactName || !email || !password || !countryCode || !phoneNumber || !companyName ) {
+    throw new Error("Missing required fields");
+  }
+
+  // Check if corporate already exists
   const existingCorporate = await Corporate.findOne({ email });
   if (existingCorporate) {
     throw new Error("Corporate already exists");
   }
 
+  // Hash the password
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // Create the corporate document
   const corporate = new Corporate({
     contactName,
     email,
@@ -62,18 +70,38 @@ export const createCorporateService = async (data) => {
     industry,
   });
 
+  // Save the corporate to the database
   await corporate.save();
   return corporate;
 };
 
 export const updateCorporateService = async (id, data) => {
-  const updatedCorporate = await Corporate.findByIdAndUpdate(id, data, {
-    new: true,
-  });
-  if (!updatedCorporate) {
-    throw new Error("Corporate not found");
+  try {
+    const updateData = { ...data };
+
+    // If profilePhoto is provided, ensure it's a string (URL)
+    if (
+      updateData.profilePhoto &&
+      typeof updateData.profilePhoto !== "string"
+    ) {
+      throw new Error("Invalid profile photo data");
+    }
+
+    const updatedCorporate = await Corporate.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select("-password -__v"); // Exclude sensitive fields
+
+    if (!updatedCorporate) {
+      throw new Error("Corporate not found");
+    }
+
+    return updatedCorporate;
+  } catch (error) {
+    console.error("Update Corporate Service Error:", error);
+    throw new Error(error.message || "Failed to update corporate profile");
   }
-  return updatedCorporate;
 };
 
 export const deleteCorporateService = async (id) => {
@@ -105,6 +133,6 @@ export const filterCandidatesByJDService = async (skillsRequired) => {
   return await Candidate.find({
     skills: { $in: skillsRequired },
   }).select(
-    "firstName lastName email phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
+    "firstName lastName email phoneNumber countryCode location profilePhoto linkedIn skills statistics.averageRating resume"
   );
 };

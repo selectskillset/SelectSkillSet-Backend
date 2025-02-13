@@ -1,4 +1,5 @@
-import { sendEmail } from "../helper/emailService.js";
+import { sendOtp, verifyOtp } from "../helper/otpService.js";
+import { uploadToS3 } from "../helper/s3Upload.js";
 import { Candidate } from "../model/candidateModel.js";
 import { Corporate } from "../model/corporateModel.js";
 import {
@@ -33,26 +34,93 @@ export const corporateLoginController = async (req, res) => {
   }
 };
 
-export const createCorporateController = async (req, res) => {
+// Register Corporate (Send OTP)
+export const registerCorporate = async (req, res) => {
   try {
-    const corporate = await createCorporateService(req.body);
-    res
-      .status(201)
-      .json({ message: "Corporate created successfully", corporate });
+    const { email } = req.body;
+
+    const existingCorporate = await Corporate.findOne({ email });
+    if (existingCorporate) {
+      console.log("Corporate already exists:", existingCorporate.email);
+      return res.status(400).json({
+        success: false,
+        message: "Corporate already exists. Please log in.",
+      });
+    }
+
+    // Send OTP to the email
+    await sendOtp(email);
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent to your email. Please verify to complete registration.",
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("Error during corporate registration:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while processing your request.",
+    });
+  }
+};
+
+// Verify OTP and Complete Registration
+export const verifyOtpAndRegisterCorporate = async (req, res) => {
+  try {
+    console.log("Received payload:", req.body); // Log the payload
+    const { otp, email, password, ...rest } = req.body;
+
+
+    // Verify OTP
+    verifyOtp(email, otp);
+    console.log("OTP verified successfully for email:", email);
+
+    // Create the corporate account
+    const corporate = await createCorporateService({
+      email,
+      password,
+      ...rest,
+    });
+    console.log("Corporate account created successfully:", corporate);
+
+    return res.status(201).json({
+      success: true,
+      message: "Corporate created successfully",
+      corporate,
+    });
+  } catch (error) {
+    console.error("Error during OTP verification or registration:", error.message);
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to verify OTP or register corporate.",
+    });
   }
 };
 
 export const updateCorporateController = async (req, res) => {
   try {
     const { id } = req.user;
-    const corporate = await updateCorporateService(id, req.body);
-    res
-      .status(200)
-      .json({ message: "Corporate updated successfully", corporate });
+    const updateData = { ...req.body };
+
+    // If a file is uploaded, upload it to S3 and add the URL to updateData
+    if (req.file) {
+      const fileUrl = await uploadToS3(req.file, "profile-photos"); // Folder name for profile photos
+      updateData.profilePhoto = fileUrl;
+    }
+
+    // Update the corporate profile
+    const corporate = await updateCorporateService(id, updateData);
+
+    res.status(200).json({
+      message: "Corporate updated successfully",
+      corporate,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    const statusCode = error.message === "Corporate not found" ? 404 : 500;
+    res.status(statusCode).json({
+      message: error.message || "Server error",
+      error: error.message,
+    });
   }
 };
 
@@ -147,7 +215,7 @@ export const getBookmarkedCandidates = async (req, res) => {
     const corporateId = req.user.id;
     const corporate = await Corporate.findById(corporateId).populate({
       path: "bookmarks.candidateId",
-      select: "firstName lastName email phoneNumber location skills profilePhoto ",
+      select: "firstName lastName email phoneNumber countryCode location skills profilePhoto ",
     });
 
     if (!corporate) {

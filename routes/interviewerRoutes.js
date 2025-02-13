@@ -13,11 +13,19 @@ import {
   registerInterviewer,
   updateInterviewerProfile,
   updateInterviewRequest,
+  verifyOtpAndRegisterInterviewer,
 } from "../controller/interviewerController.js";
+import { upload } from "../helper/s3Upload.js";
 
 const interviewerRoutes = express.Router();
 
+// Register Interviewer
 interviewerRoutes.post("/register", registerInterviewer);
+// Verify OTP and Complete Registration
+interviewerRoutes.post(
+  "/verifyOtpAndRegister",
+  verifyOtpAndRegisterInterviewer
+);
 interviewerRoutes.post("/login", loginInterviewer);
 interviewerRoutes.get("/getProfile", authenticate, getInterviewerProfile);
 interviewerRoutes.post("/addAvailability", authenticate, addAvailability);
@@ -27,7 +35,12 @@ interviewerRoutes.delete(
   authenticate,
   deleteAvailability
 );
-interviewerRoutes.put("/updateProfile", authenticate, updateInterviewerProfile);
+interviewerRoutes.put(
+  "/updateProfile",
+  authenticate,
+  upload.single("profilePhoto"),
+  updateInterviewerProfile
+);
 interviewerRoutes.get(
   "/getInterviewRequests",
   authenticate,

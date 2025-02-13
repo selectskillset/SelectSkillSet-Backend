@@ -1,5 +1,4 @@
-import generateOtp from "../helper/generateOtp.js";
-import { otpStorage, sendOtp } from "../helper/sendOtp.js";
+
 import { Interviewer } from "../model/interviewerModel.js";
 import {
   registerCandidate as registerCandidateService,
@@ -13,16 +12,17 @@ import {
   scheduleInterview as scheduleInterviewService,
   getScheduledInterviewsService,
 } from "../services/candidateService.js";
-import AWS from "aws-sdk";
 import { interviewerFeedbackTemplate } from "../templates/interviewerFeedbackTemplate.js";
 import { sendEmail } from "../helper/emailService.js";
 import { Candidate } from "../model/candidateModel.js";
+import { uploadToS3 } from "../helper/s3Upload.js";
+import { sendOtp, verifyOtp } from "../helper/otpService.js";
 
 export const registerCandidate = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Check if the email already exists in the database
+    // Check if the email already exists
     const existingCandidate = await Candidate.findOne({ email });
     if (existingCandidate) {
       return res.status(400).json({
@@ -31,15 +31,12 @@ export const registerCandidate = async (req, res) => {
       });
     }
 
-    // Generate OTP and send it to the email
-    const otp = generateOtp();
-    await sendOtp(email, otp);
+    // Send OTP to the email
+    await sendOtp(email);
 
-    // Return success response
     return res.status(200).json({
       success: true,
-      message:
-        "OTP sent to your email. Please verify to complete registration.",
+      message: "OTP sent to your email. Please verify to complete registration.",
     });
   } catch (error) {
     console.error("Error during candidate registration:", error);
@@ -53,34 +50,25 @@ export const registerCandidate = async (req, res) => {
 export const verifyOtpAndRegister = async (req, res) => {
   try {
     const { otp, email, password, ...rest } = req.body;
-    const normalizedEmail = email;
 
-    const storedOtp = otpStorage[normalizedEmail];
+    // Verify OTP
+    verifyOtp(email, otp);
 
-    if (!storedOtp) {
-      return res
-        .status(400)
-        .json({ success: false, message: "OTP not sent or expired" });
-    }
-
-    if (otp !== storedOtp) {
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
-    }
-
+    // Register the candidate
     const { token, candidateDetails } = await registerCandidateService({
       email,
       password,
       ...rest,
     });
 
-    delete otpStorage[normalizedEmail];
-
-    return res
-      .status(201)
-      .json({ success: true, token, candidate: candidateDetails });
+    return res.status(201).json({
+      success: true,
+      token,
+      candidate: candidateDetails,
+    });
   } catch (error) {
     console.error("Error during OTP verification:", error.message);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(400).json({ success: false, message: error.message });
   }
 };
 
@@ -100,48 +88,77 @@ export const getCandidateProfile = async (req, res) => {
   }
 };
 
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWSS_OPEN_KEY,
-  secretAccessKey: process.env.AWSS_SEC_KEY,
-  region: process.env.AWSS_REGION,
-});
-
-const uploadToS3 = async (file, folder) => {
-  try {
-    const params = {
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: `${folder}/${Date.now()}-${file.originalname}`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    };
-
-    const result = await s3.upload(params).promise();
-    return result.Location;
-  } catch (error) {
-    console.error("S3 Upload Error: ", error);
-    throw error;
-  }
-};
-
 export const updateCandidateProfile = async (req, res) => {
   try {
     const { id } = req.user;
     const { resume, profilePhoto } = req.files;
-
     const updates = { ...req.body };
-    if (resume) {
-      updates.resume = await uploadToS3(resume[0], "resumes");
-    }
-    if (profilePhoto) {
-      updates.profilePhoto = await uploadToS3(
-        profilePhoto[0],
-        "profile-photos"
-      );
+
+    // Parse JSON fields
+    if (updates.skills) {
+      try {
+        updates.skills = JSON.parse(updates.skills);
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid skills format. Expected JSON array.",
+        });
+      }
     }
 
-    await updateProfile(id, updates, res);
+    // Handle resume upload
+    if (resume) {
+      try {
+        const resumeUrl = await uploadToS3(resume[0], "resumes");
+        updates.resume = resumeUrl;
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload resume.",
+        });
+      }
+    }
+
+    // Handle profilePhoto upload
+    if (profilePhoto) {
+      try {
+        const profilePhotoUrl = await uploadToS3(
+          profilePhoto[0],
+          "profile-photos"
+        );
+        updates.profilePhoto = profilePhotoUrl;
+      } catch (uploadError) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload profile photo.",
+        });
+      }
+    }
+
+    // Update the candidate profile
+    const updatedProfile = await Candidate.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "Profile update failed. Candidate not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      updatedProfile,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error updating candidate profile:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error.",
+    });
   }
 };
 
@@ -163,9 +180,10 @@ export const getInterviewerProfile = async (req, res) => {
       lastName: interviewer.lastName,
       email: interviewer.email,
       location: interviewer.location || "N/A",
-     
+
       jobTitle: interviewer.jobTitle || "N/A",
-      profilePhoto: interviewer.profilePhoto || "https://default-profile-image.com",
+      profilePhoto:
+        interviewer.profilePhoto || "https://default-profile-image.com",
       experience: interviewer.experience || "Not specified",
       totalInterviews: interviewer.totalInterviews || "0",
       price: interviewer.price || "Not specified",
@@ -173,21 +191,20 @@ export const getInterviewerProfile = async (req, res) => {
       availability: interviewer.availability.dates || [],
       averageRating: interviewer.statistics?.averageRating || 0,
       totalFeedbackCount: interviewer.statistics?.totalFeedbackCount || 0,
-      feedbacks: interviewer.statistics?.feedbacks.map((feedback) => ({
-        interviewRequestId: feedback.interviewRequestId,
-        feedbackData: feedback.feedbackData,
-        rating: feedback.rating,
-      })) || [],
+      feedbacks:
+        interviewer.statistics?.feedbacks.map((feedback) => ({
+          interviewRequestId: feedback.interviewRequestId,
+          feedbackData: feedback.feedbackData,
+          rating: feedback.rating,
+        })) || [],
     };
 
-    
     res.status(200).json(response);
   } catch (error) {
     console.error("Error fetching interviewer profile:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 export const deleteCandidateProfile = async (req, res) => {
   try {
@@ -302,7 +319,7 @@ export const addInterviewerFeedback = async (req, res) => {
 
     const feedbackForEmail = latestFeedbacks.flat();
 
-    const url = process.env.WEBSITE_URL
+    const url = process.env.WEBSITE_URL;
 
     const emailContent = interviewerFeedbackTemplate(
       interviewer.firstName,

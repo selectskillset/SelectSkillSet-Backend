@@ -71,51 +71,92 @@ export const getProfile = async (candidateId, res) => {
 };
 
 export const updateProfile = async (candidateId, data, res) => {
-  const allowedUpdates = [
-    "firstName",
-    "lastName",
-    "jobTitle",
-    "location",
-    "phoneNumber",
-    "profilePhoto",
-    "linkedIn",
-    "skills",
-    "resume",
-  ];
-  const updates = Object.keys(data);
+  try {
+    const allowedUpdates = [
+      "firstName",
+      "lastName",
+      "jobTitle",
+      "location",
+      "phoneNumber",
+      "countryCode",
+      "profilePhoto",
+      "linkedIn",
+      "skills",
+      "resume",
+    ];
 
-  const isAllowed = updates.every((key) => allowedUpdates.includes(key));
-  if (!isAllowed) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Invalid updates!" });
-  }
+    // Validate allowed fields
+    const updates = Object.keys(data);
+    const invalidUpdates = updates.filter(
+      (key) => !allowedUpdates.includes(key)
+    );
 
-  // Handle skills field separately
-  if (data.skills && typeof data.skills === "string") {
-    try {
-      data.skills = JSON.parse(data.skills);
-    } catch (err) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid skills format!" });
+    if (invalidUpdates.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid updates: ${invalidUpdates.join(", ")}`,
+        validFields: allowedUpdates,
+      });
     }
+
+    // Process skills field
+    if (data.skills) {
+      try {
+        const skills =
+          typeof data.skills === "string"
+            ? JSON.parse(data.skills)
+            : data.skills;
+
+        if (!Array.isArray(skills)) {
+          return res.status(400).json({
+            success: false,
+            message: "Skills must be an array",
+          });
+        }
+
+        data.skills = skills;
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid skills format - must be valid JSON array",
+        });
+      }
+    }
+
+    // Update candidate
+    const candidate = await Candidate.findByIdAndUpdate(candidateId, data, {
+      new: true,
+      runValidators: true,
+      context: "query",
+    });
+
+    if (!candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Candidate not found",
+      });
+    }
+
+    // Sanitize response
+    const sanitizedCandidate = candidate.toObject();
+    delete sanitizedCandidate.__v;
+    delete sanitizedCandidate.createdAt;
+    delete sanitizedCandidate.updatedAt;
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      profile: sanitizedCandidate,
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
   }
-
-  const candidate = await Candidate.findByIdAndUpdate(candidateId, data, {
-    new: true,
-    runValidators: true,
-  });
-
-  if (!candidate) {
-    return res
-      .status(404)
-      .json({ success: false, message: "Profile update failed" });
-  }
-
-  return res.status(200).json({ success: true, updatedProfile: candidate });
 };
-
 export const deleteProfile = async (candidateId, res) => {
   const candidate = await Candidate.findByIdAndDelete(candidateId);
   if (!candidate) {

@@ -2,31 +2,46 @@ import generateToken from "../middleware/generateToken.js";
 import bcrypt from "bcrypt";
 
 import { Interviewer } from "../model/interviewerModel.js";
+import { uploadToS3 } from "../helper/s3Upload.js";
 
-export const registerInterviewerService = async (data, res) => {
-  const { email, password } = data;
+export const createInterviewerService = async (data) => {
+  const { firstName, lastName, email, password, countryCode, phoneNumber } =
+    data;
 
-  const existingInterviewer = await Interviewer.findOne({ email });
-  if (existingInterviewer) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Interviewer already exists" });
+  // Validate required fields
+  if (
+    !firstName ||
+    !lastName ||
+    !email ||
+    !password ||
+    !countryCode ||
+    !phoneNumber
+  ) {
+    throw new Error("Missing required fields");
   }
 
+  // Check if interviewer already exists
+  const existingInterviewer = await Interviewer.findOne({ email });
+  if (existingInterviewer) {
+    throw new Error("Interviewer already exists");
+  }
+
+  // Hash the password
   const hashedPassword = await bcrypt.hash(password, 10);
-  const newInterviewer = await Interviewer.create({
-    ...data,
+
+  // Create the interviewer document
+  const interviewer = new Interviewer({
+    firstName,
+    lastName,
+    email,
     password: hashedPassword,
+    countryCode,
+    phoneNumber,
   });
 
-  const token = generateToken(newInterviewer);
-  const { password: _, ...interviewerDetails } = newInterviewer.toObject();
-
-  return res.status(201).json({
-    success: true,
-    token,
-    interviewer: interviewerDetails,
-  });
+  // Save the interviewer to the database
+  await interviewer.save();
+  return interviewer;
 };
 
 export const loginInterviewerService = async (data, res) => {
@@ -91,7 +106,7 @@ export const getAvailabilityServices = async (interviewerId) => {
 export const updateInterviewerProfileServices = async (
   interviewerId,
   data,
-  res
+  file
 ) => {
   try {
     const allowedUpdates = [
@@ -100,47 +115,38 @@ export const updateInterviewerProfileServices = async (
       "jobTitle",
       "location",
       "phoneNumber",
-      "profilePhoto",
+      "countryCode",
       "experience",
       "price",
       "skills",
     ];
 
-    const updates = Object.keys(data);
+    // Parse skills if needed
     if (data.skills && typeof data.skills === "string") {
-      try {
-        data.skills = JSON.parse(data.skills);
-      } catch (err) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid skills format!" });
-      }
+      data.skills = JSON.parse(data.skills);
     }
 
-    const isAllowed = updates.every((key) => allowedUpdates.includes(key));
-    if (!isAllowed) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid updates!" });
+    // Filter valid updates
+    const filteredData = Object.keys(data)
+      .filter((key) => allowedUpdates.includes(key))
+      .reduce((obj, key) => ((obj[key] = data[key]), obj), {});
+
+    // Handle file upload
+    if (file) {
+      if (!file.buffer) throw new Error("Invalid file format");
+      filteredData.profilePhoto = await uploadToS3(file, "profile-photos");
     }
 
-    const interviewer = await Interviewer.findByIdAndUpdate(
-      interviewerId,
-      data,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
-
-    if (!interviewer) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Profile update failed" });
+    if (Object.keys(filteredData).length === 0) {
+      throw new Error("No valid fields provided for update");
     }
 
-    return res.status(200).json({ success: true, updatedProfile: interviewer });
+    return await Interviewer.findByIdAndUpdate(interviewerId, filteredData, {
+      new: true,
+      runValidators: true,
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("Update error:", error);
+    throw error; // Throw instead of handling response
   }
 };

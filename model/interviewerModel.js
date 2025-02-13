@@ -8,6 +8,7 @@ const interviewerSchema = new mongoose.Schema({
   isSuspended: { type: Boolean, default: false },
   location: { type: String },
   phoneNumber: { type: String },
+  countryCode: { type: String },
   jobTitle: { type: String },
   profilePhoto: {
     type: String,

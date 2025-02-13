@@ -1,27 +1,83 @@
 import { Interviewer } from "../model/interviewerModel.js";
 import { Candidate } from "../model/candidateModel.js";
 import {
+  createInterviewerService,
   getAvailabilityServices,
   getInterviewerProfileServices,
   loginInterviewerService,
-  registerInterviewerService,
   updateInterviewerProfileServices,
 } from "../services/interviewerServices.js";
 import dotenv from "dotenv";
 import { sendEmail } from "../helper/emailService.js";
 import { interviewerTemplate } from "../templates/interviewerTemplate.js";
 import { candidateTemplate } from "../templates/candidateTemplate.js";
-import moment from "moment";
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
+import { sendOtp, verifyOtp } from "../helper/otpService.js";
 
 dotenv.config();
 
 const url = process.env.WEBSITE_URL;
 export const registerInterviewer = async (req, res) => {
   try {
-    await registerInterviewerService(req.body, res);
+    const { email } = req.body;
+
+    // Check if the interviewer already exists
+    const existingInterviewer = await Interviewer.findOne({ email });
+    if (existingInterviewer) {
+      return res.status(400).json({
+        success: false,
+        message: "Interviewer already exists. Please log in.",
+      });
+    }
+
+    // Send OTP to the email
+    await sendOtp(email);
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "OTP sent to your email. Please verify to complete registration.",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("Error during interviewer registration:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "An error occurred while processing your request.",
+    });
+  }
+};
+
+export const verifyOtpAndRegisterInterviewer = async (req, res) => {
+  try {
+    console.log("Received payload:", req.body); // Log the payload
+    const { otp, email, password, ...rest } = req.body;
+
+    // Verify OTP
+    verifyOtp(email, otp);
+    console.log("OTP verified successfully for email:", email);
+
+    // Create the interviewer account
+    const interviewer = await createInterviewerService({
+      email,
+      password,
+      ...rest,
+    });
+
+    console.log("Interviewer account created successfully:", interviewer);
+    return res.status(201).json({
+      success: true,
+      message: "Interviewer created successfully",
+      interviewer,
+    });
+  } catch (error) {
+    console.error(
+      "Error during OTP verification or registration:",
+      error.message
+    );
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to verify OTP or register interviewer.",
+    });
   }
 };
 
@@ -139,9 +195,28 @@ export const getAvailability = async (req, res) => {
 
 export const updateInterviewerProfile = async (req, res) => {
   try {
-    await updateInterviewerProfileServices(req.user.id, req.body, res);
+    const updatedProfile = await updateInterviewerProfileServices(
+      req.user.id,
+      req.body,
+      req.file
+    );
+
+    if (!updatedProfile) {
+      return res.status(404).json({
+        success: false,
+        message: "Interviewer not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      updatedProfile,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 

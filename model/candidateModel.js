@@ -8,6 +8,7 @@ const candidateSchema = new mongoose.Schema(
     password: { type: String, required: true },
     isSuspended: { type: Boolean, default: false },
     phoneNumber: { type: String},
+    countryCode: { type: String},
     jobTitle: { type: String },
     location: { type: String },
     profilePhoto: {
