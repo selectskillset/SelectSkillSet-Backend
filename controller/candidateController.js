@@ -164,15 +164,25 @@ export const updateCandidateProfile = async (req, res) => {
 
 export const getInterviewerProfile = async (req, res) => {
   const id = req.params.id;
-
   try {
+    // Fetch interviewer data
     const interviewer = await Interviewer.findById(id).select(
-      "firstName lastName email location jobTitle profilePhoto experience totalInterviews price skills availability dates statistics.averageRating statistics.totalFeedbackCount statistics.feedbacks"
+      "firstName lastName email location jobTitle profilePhoto experience totalInterviews price skills bookedSlots availability statistics.averageRating statistics.totalFeedbackCount"
     );
 
     if (!interviewer) {
       return res.status(404).json({ message: "Interviewer not found" });
     }
+
+    // Filter out booked slots from availability
+    const availableSlots = interviewer.availability.dates.filter((slot) => {
+      return !interviewer.bookedSlots.some(
+        (bookedSlot) =>
+          bookedSlot.date === slot.date &&
+          bookedSlot.from === slot.from &&
+          bookedSlot.to === slot.to
+      );
+    });
 
     // Format response data
     const response = {
@@ -180,23 +190,15 @@ export const getInterviewerProfile = async (req, res) => {
       lastName: interviewer.lastName,
       email: interviewer.email,
       location: interviewer.location || "N/A",
-
       jobTitle: interviewer.jobTitle || "N/A",
-      profilePhoto:
-        interviewer.profilePhoto || "https://default-profile-image.com",
+      profilePhoto: interviewer.profilePhoto || "https://default-profile-image.com",
       experience: interviewer.experience || "Not specified",
       totalInterviews: interviewer.totalInterviews || "0",
       price: interviewer.price || "Not specified",
       skills: interviewer.skills || [],
-      availability: interviewer.availability.dates || [],
+      availability: availableSlots, // Only include available slots
       averageRating: interviewer.statistics?.averageRating || 0,
       totalFeedbackCount: interviewer.statistics?.totalFeedbackCount || 0,
-      feedbacks:
-        interviewer.statistics?.feedbacks.map((feedback) => ({
-          interviewRequestId: feedback.interviewRequestId,
-          feedbackData: feedback.feedbackData,
-          rating: feedback.rating,
-        })) || [],
     };
 
     res.status(200).json(response);

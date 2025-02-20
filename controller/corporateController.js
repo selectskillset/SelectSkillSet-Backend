@@ -10,6 +10,7 @@ import {
   getCandidatesByRatingService,
   filterCandidatesByJDService,
   corporateLoginService,
+  getOneCandidateService,
 } from "../services/corporateService.js";
 
 export const corporateLoginController = async (req, res) => {
@@ -53,7 +54,8 @@ export const registerCorporate = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "OTP sent to your email. Please verify to complete registration.",
+      message:
+        "OTP sent to your email. Please verify to complete registration.",
     });
   } catch (error) {
     console.error("Error during corporate registration:", error.message);
@@ -69,7 +71,6 @@ export const verifyOtpAndRegisterCorporate = async (req, res) => {
   try {
     console.log("Received payload:", req.body); // Log the payload
     const { otp, email, password, ...rest } = req.body;
-
 
     // Verify OTP
     verifyOtp(email, otp);
@@ -89,7 +90,10 @@ export const verifyOtpAndRegisterCorporate = async (req, res) => {
       corporate,
     });
   } catch (error) {
-    console.error("Error during OTP verification or registration:", error.message);
+    console.error(
+      "Error during OTP verification or registration:",
+      error.message
+    );
     return res.status(400).json({
       success: false,
       message: error.message || "Failed to verify OTP or register corporate.",
@@ -152,20 +156,29 @@ export const getCandidatesByRatingController = async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+export const getOneCandidateController = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const candidates = await getOneCandidateService(id);
+    res.status(200).json(candidates)
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
 
 export const filterCandidatesByJDController = async (req, res) => {
-    try {
-      const skillsRequired = Array.isArray(req.body.skillsRequired)
-        ? req.body.skillsRequired
-        : JSON.parse(req.body.skillsRequired);
-  
-      const candidates = await filterCandidatesByJDService(skillsRequired);
-      res.status(200).json({ candidates });
-    } catch (error) {
-      res.status(500).json({ message: "Server error", error: error.message });
-    }
-  };
-  
+  try {
+    const skillsRequired = Array.isArray(req.body.skillsRequired)
+      ? req.body.skillsRequired
+      : JSON.parse(req.body.skillsRequired);
+
+    const candidates = await filterCandidatesByJDService(skillsRequired);
+    res.status(200).json({ candidates });
+  } catch (error) {
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 export const bookmarkCandidate = async (req, res) => {
   try {
     const corporateId = req.user.id;
@@ -215,7 +228,8 @@ export const getBookmarkedCandidates = async (req, res) => {
     const corporateId = req.user.id;
     const corporate = await Corporate.findById(corporateId).populate({
       path: "bookmarks.candidateId",
-      select: "firstName lastName email phoneNumber countryCode location skills profilePhoto ",
+      select:
+        "firstName lastName email phoneNumber countryCode location skills profilePhoto ",
     });
 
     if (!corporate) {
@@ -236,42 +250,42 @@ export const getBookmarkedCandidates = async (req, res) => {
   }
 };
 
-
 // Unbookmark a candidate for the corporate user
 export const unbookmarkCandidate = async (req, res) => {
-    try {
-      const corporateId = req.user.id; // Get the corporate user's ID from the authenticated session
-      const { candidateId } = req.body; // Get the candidate ID from the request body
-  
-      if (!corporateId || !candidateId) {
-        return res.status(400).json({ error: "Corporate ID and Candidate ID are required." });
-      }
-  
-      const corporate = await Corporate.findById(corporateId); // Find the corporate user by ID
-      if (!corporate) {
-        return res.status(404).json({ error: "Corporate not found." });
-      }
-  
-      // Check if the candidate is already bookmarked
-      const isBookmarked = corporate.bookmarks.some(
-        (bookmark) => bookmark.candidateId.toString() === candidateId
-      );
-  
-      if (!isBookmarked) {
-        return res.status(400).json({ error: "Candidate is not bookmarked." });
-      }
-  
-      // Remove the candidate from the bookmarks list
-      corporate.bookmarks = corporate.bookmarks.filter(
-        (bookmark) => bookmark.candidateId.toString() !== candidateId
-      );
-  
-      await corporate.save(); // Save the updated corporate document
-  
-      res.status(200).json({ message: "Candidate unbookmarked successfully." });
-    } catch (error) {
-      console.error("Error unbookmarking candidate:", error);
-      res.status(500).json({ error: "Internal server error." });
+  try {
+    const corporateId = req.user.id; // Get the corporate user's ID from the authenticated session
+    const { candidateId } = req.body; // Get the candidate ID from the request body
+
+    if (!corporateId || !candidateId) {
+      return res
+        .status(400)
+        .json({ error: "Corporate ID and Candidate ID are required." });
     }
-  };
-  
+
+    const corporate = await Corporate.findById(corporateId); // Find the corporate user by ID
+    if (!corporate) {
+      return res.status(404).json({ error: "Corporate not found." });
+    }
+
+    // Check if the candidate is already bookmarked
+    const isBookmarked = corporate.bookmarks.some(
+      (bookmark) => bookmark.candidateId.toString() === candidateId
+    );
+
+    if (!isBookmarked) {
+      return res.status(400).json({ error: "Candidate is not bookmarked." });
+    }
+
+    // Remove the candidate from the bookmarks list
+    corporate.bookmarks = corporate.bookmarks.filter(
+      (bookmark) => bookmark.candidateId.toString() !== candidateId
+    );
+
+    await corporate.save(); // Save the updated corporate document
+
+    res.status(200).json({ message: "Candidate unbookmarked successfully." });
+  } catch (error) {
+    console.error("Error unbookmarking candidate:", error);
+    res.status(500).json({ error: "Internal server error." });
+  }
+};

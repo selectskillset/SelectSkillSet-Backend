@@ -7,10 +7,11 @@ const candidateSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
     isSuspended: { type: Boolean, default: false },
-    phoneNumber: { type: String},
-    countryCode: { type: String},
+    phoneNumber: { type: String },
+    countryCode: { type: String },
     jobTitle: { type: String },
     location: { type: String },
+    hasAcceptedTerms: { type: Boolean, default: false },
     profilePhoto: {
       type: String,
       default:

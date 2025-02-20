@@ -11,6 +11,7 @@ import {
   unbookmarkCandidate,
   registerCorporate,
   verifyOtpAndRegisterCorporate,
+  getOneCandidateController
 } from "../controller/corporateController.js";
 import authenticate from "../middleware/authenticate.js";
 import { upload } from "../helper/s3Upload.js";
@@ -31,8 +32,9 @@ corporateRoutes.put(
 );
 corporateRoutes.delete("/delete", deleteCorporateController);
 corporateRoutes.get("/getProfile", authenticate, getCorporateController);
-corporateRoutes.get("/getAllCandidates", getCandidatesByRatingController);
-corporateRoutes.post("/candidates/filter", filterCandidatesByJDController);
+corporateRoutes.get("/getAllCandidates",authenticate, getCandidatesByRatingController);
+corporateRoutes.get("/getOneCandidate/:id",authenticate, getOneCandidateController);
+corporateRoutes.post("/candidates/filter",authenticate, filterCandidatesByJDController);
 corporateRoutes.post("/bookmarkCandidate", authenticate, bookmarkCandidate);
 corporateRoutes.post("/unbookmarkCandidate", authenticate, unbookmarkCandidate);
 corporateRoutes.get(

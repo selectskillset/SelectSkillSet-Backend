@@ -45,7 +45,14 @@ export const createCorporateService = async (data) => {
   } = data;
 
   // Validate required fields
-  if (!contactName || !email || !password || !countryCode || !phoneNumber || !companyName ) {
+  if (
+    !contactName ||
+    !email ||
+    !password ||
+    !countryCode ||
+    !phoneNumber ||
+    !companyName
+  ) {
     throw new Error("Missing required fields");
   }
 
@@ -127,6 +134,12 @@ export const getCandidatesByRatingService = async () => {
     .select(
       "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
     );
+};
+export const getOneCandidateService = async (id) => {
+  return await Candidate.findById(id)
+  .select(
+    "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
+  );
 };
 
 export const filterCandidatesByJDService = async (skillsRequired) => {
