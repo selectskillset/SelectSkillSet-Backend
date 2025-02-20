@@ -584,11 +584,11 @@ const calculateAverageRating = (feedback) => {
 export const getInterviewerStatistics = async (req, res) => {
   try {
     const interviewerId = req.user.id;
-
     if (!interviewerId) {
       return res.status(400).json({ message: "User ID is required." });
     }
 
+    // Fetch the interviewer with populated candidate details
     const interviewer = await Interviewer.findById(interviewerId).populate({
       path: "interviewRequests.candidateId",
       select: "firstName lastName profilePhoto",
@@ -608,19 +608,23 @@ export const getInterviewerStatistics = async (req, res) => {
     // Update pendingRequests count dynamically
     statistics.pendingRequests = pendingRequestsCount;
 
+    // Map feedbacks with additional details
     const feedbacks = statistics.feedbacks.map((feedback) => {
       const interviewRequest = interviewer.interviewRequests.find(
         (req) => req._id.toString() === feedback.interviewRequestId.toString()
       );
 
-      const candidate = interviewRequest ? interviewRequest.candidateId : {};
+      // Safely handle candidate details
+      const candidate = interviewRequest?.candidateId || {};
+      const candidateName =
+        candidate.firstName && candidate.lastName
+          ? `${candidate.firstName} ${candidate.lastName.charAt(0)}...`
+          : "N/A";
 
       return {
         interviewRequestId: feedback.interviewRequestId,
-        interviewDate: interviewRequest ? interviewRequest.date : "",
-        candidateName: candidate.firstName
-          ? `${candidate.firstName} ${candidate.lastName.charAt(0)}...`
-          : "N/A",
+        interviewDate: interviewRequest?.date || "N/A",
+        candidateName: candidateName,
         profilePhoto: candidate.profilePhoto || "N/A",
         feedbackData: feedback.feedbackData,
         rating: feedback.rating,
@@ -639,9 +643,9 @@ export const getInterviewerStatistics = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching interviewer statistics:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error. Please try again later." });
+    console.error("Error fetching interviewer statistics:", error.message);
+    return res.status(500).json({
+      message: "Server error. Please try again later.",
+    });
   }
 };
