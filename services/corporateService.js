@@ -132,13 +132,13 @@ export const getCandidatesByRatingService = async () => {
   return await Candidate.find()
     .sort({ "statistics.averageRating": -1 })
     .select(
-      "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
+      "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
     );
 };
 export const getOneCandidateService = async (id) => {
   return await Candidate.findById(id)
   .select(
-    "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating resume"
+    "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
   );
 };
 
@@ -146,6 +146,6 @@ export const filterCandidatesByJDService = async (skillsRequired) => {
   return await Candidate.find({
     skills: { $in: skillsRequired },
   }).select(
-    "firstName lastName email phoneNumber countryCode location profilePhoto linkedIn skills statistics.averageRating resume"
+    "firstName lastName email phoneNumber countryCode location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
   );
 };

@@ -1,4 +1,3 @@
-
 import { Interviewer } from "../model/interviewerModel.js";
 import {
   registerCandidate as registerCandidateService,
@@ -36,7 +35,8 @@ export const registerCandidate = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "OTP sent to your email. Please verify to complete registration.",
+      message:
+        "OTP sent to your email. Please verify to complete registration.",
     });
   } catch (error) {
     console.error("Error during candidate registration:", error);
@@ -191,7 +191,8 @@ export const getInterviewerProfile = async (req, res) => {
       email: interviewer.email,
       location: interviewer.location || "N/A",
       jobTitle: interviewer.jobTitle || "N/A",
-      profilePhoto: interviewer.profilePhoto || "https://default-profile-image.com",
+      profilePhoto:
+        interviewer.profilePhoto || "https://default-profile-image.com",
       experience: interviewer.experience || "Not specified",
       totalInterviews: interviewer.totalInterviews || "0",
       price: interviewer.price || "Not specified",
@@ -278,6 +279,24 @@ export const addInterviewerFeedback = async (req, res) => {
       return res.status(404).json({ message: "Interviewer not found." });
     }
 
+    // Find the interview request in the interviewer's list
+    const interviewIndex = interviewer.interviewRequests.findIndex(
+      (i) => i._id.toString() === interviewRequestId
+    );
+
+    if (interviewIndex === -1) {
+      return res.status(404).json({ message: "Interview request not found." });
+    }
+
+    // Check if interview is already completed
+    if (interviewer.interviewRequests[interviewIndex].status === "Completed") {
+      return res.status(400).json({ message: "Interview already completed." });
+    }
+
+    // Update interview status to Completed
+    interviewer.interviewRequests[interviewIndex].status = "Completed";
+    interviewer.markModified("interviewRequests");
+
     const existingFeedback = interviewer.statistics.feedbacks.find(
       (item) => item.interviewRequestId?.toString() === interviewRequestId
     );
@@ -296,6 +315,7 @@ export const addInterviewerFeedback = async (req, res) => {
       rating: averageRating,
     });
 
+    // Update statistics
     interviewer.statistics.completedInterviews += 1;
     interviewer.statistics.totalAccepted += 1;
     interviewer.statistics.totalFeedbackCount += 1;

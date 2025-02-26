@@ -13,6 +13,7 @@ import { interviewerTemplate } from "../templates/interviewerTemplate.js";
 import { candidateTemplate } from "../templates/candidateTemplate.js";
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
+import { isSlotExpired } from "../utils/slotUtils.js";
 
 dotenv.config();
 
@@ -100,48 +101,53 @@ export const getInterviewerProfile = async (req, res) => {
 export const addAvailability = async (req, res) => {
   try {
     const { dates } = req.body;
-    if (!dates || !Array.isArray(dates)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid dates format." });
+    if (!dates?.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Please provide valid availability dates",
+      });
     }
 
-    // Store the dates exactly as received (no parsing or modification)
-    const dateObjects = dates.map((date) => {
-      return {
-        date: date.date, // Keep the original string format for the date
-        from: date.from, // Keep the original string format for the 'from' time
-        to: date.to, // Keep the original string format for the 'to' time
-      };
+    const interviewer = await Interviewer.findById(req.user.id);
+    if (!interviewer) {
+      return res.status(404).json({
+        success: false,
+        message: "Interviewer not found",
+      });
+    }
+
+    // Add new slots (prevent duplicates)
+    dates.forEach((newSlot) => {
+      const exists = interviewer.availability.dates.some(
+        (slot) =>
+          slot.date === newSlot.date &&
+          slot.from === newSlot.from &&
+          slot.to === newSlot.to
+      );
+      if (!exists) interviewer.availability.dates.push(newSlot);
     });
 
-    // Save the availability data in the database
-    const updatedInterviewer = await Interviewer.findByIdAndUpdate(
-      req.user.id,
-      { $addToSet: { "availability.dates": { $each: dateObjects } } },
-      { new: true }
+    // Remove expired slots
+    interviewer.availability.dates = interviewer.availability.dates.filter(
+      (slot) => !isSlotExpired(slot)
     );
 
-    if (!updatedInterviewer) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Interviewer not found." });
-    }
+    await interviewer.save();
 
-    // Send the exact format of the dates back in the response
     res.status(200).json({
       success: true,
-      availability: {
-        dates: updatedInterviewer.availability.dates.map((item) => ({
-          date: item.date, // Send date as a string
-          from: item.from, // Send 'from' time as a string
-          to: item.to, // Send 'to' time as a string
-          _id: item._id, // Include _id if necessary
-        })),
-      },
+      availability: interviewer.availability.dates.map((slot) => ({
+        _id: slot._id,
+        date: slot.date,
+        from: slot.from,
+        to: slot.to,
+      })),
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -179,17 +185,36 @@ export const deleteAvailability = async (req, res) => {
 
 export const getAvailability = async (req, res) => {
   try {
-    const availability = await getAvailabilityServices(req.user.id);
+    const interviewer = await Interviewer.findById(req.user.id).select(
+      "availability"
+    );
 
-    if (!availability) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No availability found" });
+    if (!interviewer) {
+      return res.status(404).json({
+        success: false,
+        message: "Interviewer not found",
+      });
     }
 
-    return res.status(200).json({ success: true, availability });
+    // Filter out expired slots
+    const validSlots = interviewer.availability.dates.filter(
+      (slot) => !isSlotExpired(slot)
+    );
+
+    res.status(200).json({
+      success: true,
+      availability: validSlots.map((slot) => ({
+        _id: slot._id,
+        date: slot.date,
+        from: slot.from,
+        to: slot.to,
+      })),
+    });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
@@ -254,11 +279,9 @@ const formatDateTime = (date, from, to) => {
 
 export const getInterviewRequests = async (req, res) => {
   try {
-    const interviewerId = req.user.id;
-
-    const interviewer = await Interviewer.findById(interviewerId).populate(
+    const interviewer = await Interviewer.findById(req.user.id).populate(
       "interviewRequests.candidateId",
-      "firstName lastName profilePhoto"
+      "firstName lastName profilePhoto skills resume"
     );
 
     if (!interviewer) {
@@ -267,58 +290,62 @@ export const getInterviewRequests = async (req, res) => {
         .json({ success: false, message: "Interviewer not found" });
     }
 
-    if (interviewer.interviewRequests.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No interview requests available.",
-      });
-    }
+    const currentDate = new Date();
 
-    const formattedRequests = interviewer.interviewRequests.map((request) => {
-      const { _id, candidateId, position, date, time, status } = request;
+    const formattedRequests = interviewer.interviewRequests
+      .map((request) => {
+        try {
+          const requestDate = new Date(request.date);
+          if (isNaN(requestDate)) return null;
 
-      // Ensure date is in ISO format
-      const formattedDate = new Date(date);
-      const dayName = formattedDate.toLocaleString("en-IN", {
-        weekday: "long",
-      });
-      const formattedDateStr = formattedDate.toLocaleDateString("en-IN");
+          // Parse time slot
+          let endDateTime;
+          if (request.time && typeof request.time === "string") {
+            const [_, endTime] = request.time.split(" - ");
+            const [time, period] = endTime.split(" ");
+            let [hours, minutes] = time.split(":").map(Number);
 
-      // Function to format individual time parts (e.g., "02:00 PM")
-      const formatTimePart = (timePart) => {
-        if (!timePart || typeof timePart !== "string") return "N/A";
-        const parsedTime = new Date(`1970-01-01T${timePart}Z`);
-        if (isNaN(parsedTime.getTime())) return timePart;
-        return parsedTime.toLocaleTimeString("en-US", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-          timeZone: "GMT",
-        });
-      };
+            hours =
+              period === "PM" && hours !== 12
+                ? hours + 12
+                : period === "AM" && hours === 12
+                ? 0
+                : hours;
 
-      // Split time into start and end if it's valid
-      let timeRange = "N/A";
-      if (time && typeof time === "string") {
-        const [start, end] = time.split(" - ").map(formatTimePart);
-        timeRange = `${start} - ${end}`;
-      }
+            endDateTime = new Date(requestDate);
+            endDateTime.setHours(hours, minutes);
+          }
 
-      const firstName = candidateId?.firstName || "N/A";
-      const lastName = candidateId?.lastName || "";
-      const shortName = `${firstName} ${lastName.charAt(0).toUpperCase()}...`;
+          // Filter out past requests
+          if (endDateTime && endDateTime < currentDate) return null;
 
-      return {
-        id: _id,
-        name: shortName,
-        profilePhoto: candidateId?.profilePhoto || null,
-        position: position || "N/A",
-        date: formattedDateStr,
-        day: dayName,
-        time: timeRange,
-        status,
-      };
-    });
+          // Format response
+          return {
+            id: request._id,
+            name: `${request.candidateId?.firstName} ${
+              request.candidateId?.lastName?.charAt(0) || ""
+            }`.trim(),
+            profilePhoto: request.candidateId?.profilePhoto,
+            resume: request.candidateId?.resume,
+            skills: request.candidateId?.skills,
+            position: request.position || "N/A",
+            date: requestDate.toLocaleDateString("en-IN"),
+            day: requestDate.toLocaleDateString("en-IN", { weekday: "long" }),
+            time: request.time
+              ? request.time.replace(
+                  /(\d+:\d+) ([AP]M) - (\d+:\d+) ([AP]M)/,
+                  "$1 $2 - $3 $4"
+                )
+              : "N/A",
+            status: request.status,
+          };
+        } catch (error) {
+          console.error("Error processing request:", error);
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return res.status(200).json({
       success: true,
@@ -498,6 +525,19 @@ export const addCandidateFeedback = async (req, res) => {
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found." });
     }
+
+
+    const interviewIndex = candidate.scheduledInterviews.findIndex(
+      i => i._id.toString() === interviewRequestId
+    );
+
+    if (interviewIndex === -1) {
+      return res.status(404).json({ message: "Interview request not found." });
+    }
+
+    // Update status
+    candidate.scheduledInterviews[interviewIndex].status = "Completed";
+    candidate.markModified('scheduledInterviews');
 
     const candidateName = candidate.firstName;
 
