@@ -16,6 +16,7 @@ import { sendEmail } from "../helper/emailService.js";
 import { Candidate } from "../model/candidateModel.js";
 import { uploadToS3 } from "../helper/s3Upload.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
+import { isSlotExpired } from "../utils/slotUtils.js";
 
 export const registerCandidate = async (req, res) => {
   try {
@@ -174,8 +175,13 @@ export const getInterviewerProfile = async (req, res) => {
       return res.status(404).json({ message: "Interviewer not found" });
     }
 
+    // Filter out expired slots
+    const validSlots = interviewer.availability.dates.filter(
+      (slot) => !isSlotExpired(slot)
+    );
+
     // Filter out booked slots from availability
-    const availableSlots = interviewer.availability.dates.filter((slot) => {
+    const availableSlots = validSlots.filter((slot) => {
       return !interviewer.bookedSlots.some(
         (bookedSlot) =>
           bookedSlot.date === slot.date &&
