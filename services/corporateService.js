@@ -135,11 +135,71 @@ export const getCandidatesByRatingService = async () => {
       "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
     );
 };
-export const getOneCandidateService = async (id) => {
-  return await Candidate.findById(id)
-  .select(
-    "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
-  );
+export const getOneCandidateService = async (id,corporateId) => {
+  try {
+    // Validate input
+    if (!id) {
+      throw new Error("Candidate ID is required");
+    }
+
+    // Fetch candidate data with lean() for better performance
+    const candidate = await Candidate.findById(id)
+      .select(
+        "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume scheduledInterviews"
+      )
+      .lean();
+
+    if (!candidate) {
+      throw new Error("Candidate not found");
+    }
+
+    const enrichedFeedbacks = candidate.statistics.feedbacks.map((feedback) => {
+      if (!feedback.interviewRequestId) {
+        return feedback;
+      }
+
+      const scheduledInterview = candidate.scheduledInterviews.find(
+        (interview) => 
+          interview._id.toString() === feedback.interviewRequestId.toString()
+      );
+
+      return scheduledInterview ? {
+        ...feedback,
+        date: scheduledInterview.date,
+        from: scheduledInterview.from,
+        to: scheduledInterview.to,
+      } : feedback;
+    });
+
+
+    // Check if the candidate is bookmarked by the corporate user
+    let isBookmarked = false;
+    if (corporateId) {
+      const corporate = await Corporate.findOne({
+        _id: corporateId,
+        "bookmarks.candidateId": id,
+      });
+      isBookmarked = !!corporate; // Set to true if corporate has bookmarked the candidate
+    }
+
+    const response = {
+      ...candidate,
+      statistics: {
+        ...candidate.statistics,
+        feedbacks: enrichedFeedbacks
+      },
+      isBookmarked,
+    };
+    delete response.scheduledInterviews;
+
+    
+
+    return response;
+  } catch (error) {
+    throw error instanceof Error 
+      ? error 
+      : new Error(`Failed to fetch candidate: ${error}`);
+  }
 };
 
 export const filterCandidatesByJDService = async (skillsRequired) => {

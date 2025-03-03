@@ -1,3 +1,4 @@
+import { sendEmail } from "../helper/emailService.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { uploadToS3 } from "../helper/s3Upload.js";
 import { Candidate } from "../model/candidateModel.js";
@@ -12,6 +13,7 @@ import {
   corporateLoginService,
   getOneCandidateService,
 } from "../services/corporateService.js";
+import { bookmarkEmailTemplate } from "../templates/bookmarkEmailTemplate.js";
 
 export const corporateLoginController = async (req, res) => {
   try {
@@ -157,10 +159,11 @@ export const getCandidatesByRatingController = async (req, res) => {
   }
 };
 export const getOneCandidateController = async (req, res) => {
+  const corporateId = req.user.id;
   const { id } = req.params;
   try {
-    const candidates = await getOneCandidateService(id);
-    res.status(200).json(candidates)
+    const candidates = await getOneCandidateService(id,corporateId);
+    res.status(200).json(candidates);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -181,45 +184,127 @@ export const filterCandidatesByJDController = async (req, res) => {
 
 export const bookmarkCandidate = async (req, res) => {
   try {
-    const corporateId = req.user.id;
+    const { id } = req.user; // Corporate ID
     const { candidateId } = req.body;
 
-    if (!corporateId || !candidateId) {
-      return res
-        .status(400)
-        .json({ error: "Corporate ID and Candidate ID are required." });
+    // Validate input
+    if (!candidateId) {
+      return res.status(400).json({
+        success: false,
+        message: "Candidate ID is required",
+      });
     }
 
-    const corporate = await Corporate.findById(corporateId);
+    // Find corporate and candidate
+    const [corporate, candidate] = await Promise.all([
+      Corporate.findById(id),
+      Candidate.findById(candidateId),
+    ]);
+
+    if (!corporate || !candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Corporate or Candidate not found",
+      });
+    }
+
+    // Check if already bookmarked
+    const isBookmarked = corporate.bookmarks.some(
+      (b) => b.candidateId.toString() === candidateId
+    );
+    if (isBookmarked) {
+      return res.status(400).json({
+        success: false,
+        message: "Candidate already bookmarked",
+      });
+    }
+
+    // Add bookmark
+    corporate.bookmarks.push({ candidateId });
+    await corporate.save();
+
+    // Send email notification
+    try {
+      // Generate email content using the template
+      const emailContent = bookmarkEmailTemplate(
+        candidate.email,
+        `${candidate.firstName} ${candidate.lastName}`,
+        corporate.companyName
+      );
+
+      // Pass individual fields to sendEmail
+      await sendEmail(
+        emailContent.to,
+        emailContent.subject,
+        null,
+        emailContent.html
+      );
+    } catch (emailError) {
+      console.error(" Email sending failed:", emailError.message);
+      // Continue even if email fails
+    }
+
+    // Respond with success
+    res.status(200).json({
+      success: true,
+      message: "Candidate bookmarked successfully",
+      bookmarks: corporate.bookmarks,
+    });
+  } catch (error) {
+    console.error(" Bookmark error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const unbookmarkCandidate = async (req, res) => {
+  try {
+    const { id } = req.user;
+    const { candidateId } = req.body;
+
+    if (!candidateId) {
+      return res.status(400).json({
+        success: false,
+        message: "Candidate ID is required",
+      });
+    }
+
+    const corporate = await Corporate.findById(id);
     if (!corporate) {
-      return res.status(404).json({ error: "Corporate not found." });
+      return res.status(404).json({
+        success: false,
+        message: "Corporate not found",
+      });
     }
 
-    const candidate = await Candidate.findById(candidateId);
-    if (!candidate) {
-      return res.status(404).json({ error: "Candidate not found." });
-    }
-
-    const alreadyBookmarked = corporate.bookmarks.some(
-      (bookmark) => bookmark.candidateId.toString() === candidateId
+    // Remove bookmark
+    const initialLength = corporate.bookmarks.length;
+    corporate.bookmarks = corporate.bookmarks.filter(
+      (b) => b.candidateId.toString() !== candidateId
     );
 
-    if (alreadyBookmarked) {
-      corporate.bookmarks = corporate.bookmarks.filter(
-        (bookmark) => bookmark.candidateId.toString() !== candidateId
-      );
-      await corporate.save();
-
-      res.status(200).json({ message: "Candidate unbookmarked successfully." });
-    } else {
-      corporate.bookmarks.push({ candidateId });
-      await corporate.save();
-
-      res.status(200).json({ message: "Candidate bookmarked successfully." });
+    if (initialLength === corporate.bookmarks.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Bookmark not found",
+      });
     }
+
+    await corporate.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Candidate unbookmarked successfully",
+      bookmarks: corporate.bookmarks,
+    });
   } catch (error) {
-    console.error("Error bookmarking candidate:", error);
-    res.status(500).json({ error: "Internal server error." });
+    console.error("Unbookmark error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 };
 
@@ -229,7 +314,7 @@ export const getBookmarkedCandidates = async (req, res) => {
     const corporate = await Corporate.findById(corporateId).populate({
       path: "bookmarks.candidateId",
       select:
-        "firstName lastName email phoneNumber countryCode location skills profilePhoto ",
+        "firstName lastName location profilePhoto skills statistics.averageRating",
     });
 
     if (!corporate) {
@@ -247,45 +332,5 @@ export const getBookmarkedCandidates = async (req, res) => {
   } catch (error) {
     console.error("Error fetching bookmarked candidates:", error);
     res.status(500).json({ success: false, message: "Internal server error." });
-  }
-};
-
-// Unbookmark a candidate for the corporate user
-export const unbookmarkCandidate = async (req, res) => {
-  try {
-    const corporateId = req.user.id; // Get the corporate user's ID from the authenticated session
-    const { candidateId } = req.body; // Get the candidate ID from the request body
-
-    if (!corporateId || !candidateId) {
-      return res
-        .status(400)
-        .json({ error: "Corporate ID and Candidate ID are required." });
-    }
-
-    const corporate = await Corporate.findById(corporateId); // Find the corporate user by ID
-    if (!corporate) {
-      return res.status(404).json({ error: "Corporate not found." });
-    }
-
-    // Check if the candidate is already bookmarked
-    const isBookmarked = corporate.bookmarks.some(
-      (bookmark) => bookmark.candidateId.toString() === candidateId
-    );
-
-    if (!isBookmarked) {
-      return res.status(400).json({ error: "Candidate is not bookmarked." });
-    }
-
-    // Remove the candidate from the bookmarks list
-    corporate.bookmarks = corporate.bookmarks.filter(
-      (bookmark) => bookmark.candidateId.toString() !== candidateId
-    );
-
-    await corporate.save(); // Save the updated corporate document
-
-    res.status(200).json({ message: "Candidate unbookmarked successfully." });
-  } catch (error) {
-    console.error("Error unbookmarking candidate:", error);
-    res.status(500).json({ error: "Internal server error." });
   }
 };
