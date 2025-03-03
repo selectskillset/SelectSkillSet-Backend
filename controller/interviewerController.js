@@ -14,6 +14,7 @@ import { candidateTemplate } from "../templates/candidateTemplate.js";
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { isSlotExpired } from "../utils/slotUtils.js";
+import { parseTimeSlot, formatDate, formatDay, formatTime, isPastRequest } from "../utils/dateTimeUtils.js";
 
 dotenv.config();
 
@@ -290,34 +291,13 @@ export const getInterviewRequests = async (req, res) => {
         .json({ success: false, message: "Interviewer not found" });
     }
 
-    const currentDate = new Date();
-
     const formattedRequests = interviewer.interviewRequests
       .map((request) => {
         try {
           const requestDate = new Date(request.date);
-          if (isNaN(requestDate)) return null;
 
-          // Parse time slot
-          let endDateTime;
-          if (request.time && typeof request.time === "string") {
-            const [_, endTime] = request.time.split(" - ");
-            const [time, period] = endTime.split(" ");
-            let [hours, minutes] = time.split(":").map(Number);
-
-            hours =
-              period === "PM" && hours !== 12
-                ? hours + 12
-                : period === "AM" && hours === 12
-                ? 0
-                : hours;
-
-            endDateTime = new Date(requestDate);
-            endDateTime.setHours(hours, minutes);
-          }
-
-          // Filter out past requests
-          if (endDateTime && endDateTime < currentDate) return null;
+          // Skip if the request is in the past
+          if (isPastRequest(requestDate, request.time)) return null;
 
           // Format response
           return {
@@ -329,14 +309,9 @@ export const getInterviewRequests = async (req, res) => {
             resume: request.candidateId?.resume,
             skills: request.candidateId?.skills,
             position: request.position || "N/A",
-            date: requestDate.toLocaleDateString("en-IN"),
-            day: requestDate.toLocaleDateString("en-IN", { weekday: "long" }),
-            time: request.time
-              ? request.time.replace(
-                  /(\d+:\d+) ([AP]M) - (\d+:\d+) ([AP]M)/,
-                  "$1 $2 - $3 $4"
-                )
-              : "N/A",
+            date: formatDate(requestDate),
+            day: formatDay(requestDate),
+            time: formatTime(request.time),
             status: request.status,
           };
         } catch (error) {
