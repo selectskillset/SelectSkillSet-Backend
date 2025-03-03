@@ -15,14 +15,20 @@ export const isSlotExpired = (slot) => {
     if (period?.toUpperCase() === "PM" && hours < 12) hours += 12;
     if (period?.toUpperCase() === "AM" && hours === 12) hours = 0;
 
-    // Create end date in local time (based on the provided date and time)
-    const endTime = new Date(year, month - 1, day, hours, minutes);
+    // Create end date in IST (Indian Standard Time)
+    const endTimeIST = new Date(year, month - 1, day, hours, minutes);
 
-    // Get current time in local time
-    const currentDate = new Date();
+    // Convert IST to UTC
+    const endTimeUTC = new Date(
+      Date.UTC(year, month - 1, day, hours, minutes) - 
+      5.5 * 60 * 60 * 1000 // IST is UTC+5:30
+    );
+
+    // Get current time in UTC
+    const currentUTC = new Date().toISOString();
 
     // Compare the timestamps directly
-    return currentDate > endTime;
+    return new Date(currentUTC) > endTimeUTC;
   } catch (error) {
     return true; // Treat any parsing errors as expired
   }
