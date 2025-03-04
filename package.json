@@ -13,7 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.1692.0",
-    "axios": "^1.7.9",
+    "axios": "^1.8.1",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
@@ -38,6 +38,7 @@
     "pdf-parse": "^1.1.1",
     "pdf2json": "^3.1.4",
     "tesseract.js": "^5.1.1",
-    "textract": "^2.5.0"
+    "textract": "^2.5.0",
+    "ws": "^8.18.1"
   }
 }

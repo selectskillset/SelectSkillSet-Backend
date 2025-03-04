@@ -2,7 +2,6 @@ import { Interviewer } from "../model/interviewerModel.js";
 import { Candidate } from "../model/candidateModel.js";
 import {
   createInterviewerService,
-  getAvailabilityServices,
   getInterviewerProfileServices,
   loginInterviewerService,
   updateInterviewerProfileServices,
@@ -14,7 +13,12 @@ import { candidateTemplate } from "../templates/candidateTemplate.js";
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { isSlotExpired } from "../utils/slotUtils.js";
-import { parseTimeSlot, formatDate, formatDay, formatTime, isPastRequest } from "../utils/dateTimeUtils.js";
+import {
+  formatDate,
+  formatDay,
+  formatTime,
+  isPastRequest,
+} from "../utils/dateTimeUtils.js";
 
 dotenv.config();
 
@@ -501,9 +505,8 @@ export const addCandidateFeedback = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found." });
     }
 
-
     const interviewIndex = candidate.scheduledInterviews.findIndex(
-      i => i._id.toString() === interviewRequestId
+      (i) => i._id.toString() === interviewRequestId
     );
 
     if (interviewIndex === -1) {
@@ -512,7 +515,7 @@ export const addCandidateFeedback = async (req, res) => {
 
     // Update status
     candidate.scheduledInterviews[interviewIndex].status = "Completed";
-    candidate.markModified('scheduledInterviews');
+    candidate.markModified("scheduledInterviews");
 
     const candidateName = candidate.firstName;
 
