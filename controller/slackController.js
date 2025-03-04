@@ -46,7 +46,8 @@ export const handleSlackEvents = (req, res) => {
 
   // Respond to Slack's challenge during setup
   if (body.type === "url_verification") {
-    return res.send({ challenge: body.challenge });
+    console.log("Received url_verification challenge:", body.challenge);
+    return res.status(200).json({ challenge: body.challenge });
   }
 
   // Handle incoming messages
@@ -64,5 +65,6 @@ export const handleSlackEvents = (req, res) => {
     });
   }
 
-  res.send("OK");
+  // Always respond with "OK" to acknowledge receipt
+  res.status(200).send("OK");
 };

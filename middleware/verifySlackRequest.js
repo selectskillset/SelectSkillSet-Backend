@@ -1,4 +1,4 @@
-// middleware/verifySlackRequest.js
+
 import crypto from "crypto";
 import dotenv from "dotenv";
 
@@ -25,6 +25,11 @@ export const rawBodyMiddleware = (req, res, next) => {
 export const verifySlackRequest = (req, res, next) => {
   const timestamp = req.headers["x-slack-request-timestamp"];
   const signature = req.headers["x-slack-signature"];
+
+  // Bypass verification for url_verification requests
+  if (req.body.type === "url_verification") {
+    return next();
+  }
 
   if (!timestamp || !signature) {
     return res.status(403).send("Invalid request");
