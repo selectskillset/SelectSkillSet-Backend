@@ -14,6 +14,7 @@ import {
   updateInterviewerProfile,
   updateInterviewRequest,
   verifyOtpAndRegisterInterviewer,
+  getInterviewerProfileCompletion
 } from "../controller/interviewerController.js";
 import { upload } from "../helper/s3Upload.js";
 
@@ -56,6 +57,12 @@ interviewerRoutes.get(
   "/get-interviewer-statistics",
   authenticate,
   getInterviewerStatistics
+);
+
+interviewerRoutes.get(
+  "/profile-completion",
+  authenticate,
+  getInterviewerProfileCompletion
 );
 
 // interviewerRoutes.delete("/profile", deleteCandidateProfile);

@@ -7,6 +7,7 @@ import {
   getCandidateStatistics,
   getInterviewerProfile,
   getInterviewers,
+  getProfileCompletion,
   getScheduledInterviews,
   importFromLinkedIn,
   importFromResume,
@@ -54,5 +55,7 @@ candidateRoutes.get(
   authenticate,
   getCandidateStatistics
 );
+
+candidateRoutes.get("/profile-completion", authenticate, getProfileCompletion);
 
 export default candidateRoutes;

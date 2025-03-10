@@ -3,6 +3,7 @@ import { Candidate } from "../model/candidateModel.js";
 import generateToken from "../middleware/generateToken.js";
 import { Interviewer } from "../model/interviewerModel.js";
 import mongoose from "mongoose";
+import { sendProfileCompletionEmail } from "../helper/sendProfileCompletionEmail.js";
 
 export const registerCandidate = async ({ email, password, ...rest }) => {
   try {
@@ -19,6 +20,8 @@ export const registerCandidate = async ({ email, password, ...rest }) => {
     });
 
     const savedCandidate = await newCandidate.save();
+
+    await sendProfileCompletionEmail(savedCandidate);
 
     const token = generateToken(savedCandidate);
 
@@ -129,6 +132,8 @@ export const updateProfile = async (candidateId, data, res) => {
       runValidators: true,
       context: "query",
     });
+
+    await sendProfileCompletionEmail(candidate);
 
     if (!candidate) {
       return res.status(404).json({
@@ -265,7 +270,8 @@ export const scheduleInterview = async (candidateId, data, res) => {
     if (!interviewerId || !date || !price || !from || !to) {
       return res.status(400).json({
         success: false,
-        message: "All fields (interviewerId, date, price, from, to) are required",
+        message:
+          "All fields (interviewerId, date, price, from, to) are required",
       });
     }
 
@@ -299,7 +305,9 @@ export const scheduleInterview = async (candidateId, data, res) => {
     // Create interview request ID and format date
     const interviewRequestId = new mongoose.Types.ObjectId();
     const interviewDate = new Date(date);
-    const dayName = interviewDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayName = interviewDate.toLocaleDateString("en-US", {
+      weekday: "long",
+    });
 
     // Update candidate's scheduled interviews
     candidate.scheduledInterviews.push({
@@ -334,7 +342,9 @@ export const scheduleInterview = async (candidateId, data, res) => {
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 export const getScheduledInterviewsService = async (candidateId) => {
@@ -389,4 +399,64 @@ export const getScheduledInterviewsService = async (candidateId) => {
       message: error.message || "Internal server error",
     };
   }
+};
+
+export const calculateProfileCompletion = (candidate) => {
+  const sections = [
+    {
+      name: "Basic Details (Name, Email, Phone, etc.)",
+      percentage: 15,
+      check: () =>
+        candidate.firstName &&
+        candidate.lastName &&
+        candidate.email &&
+        candidate.phoneNumber &&
+        candidate.countryCode,
+    },
+    {
+      name: "Profile Photo",
+      percentage: 10,
+      check: () => !!candidate.profilePhoto,
+    },
+    {
+      name: "Resume Upload",
+      percentage: 25,
+      check: () => !!candidate.resume,
+    },
+    {
+      name: "Work Experience",
+      percentage: 20,
+      check: () => !!candidate.jobTitle && !!candidate.location,
+    },
+    {
+      name: "Skills",
+      percentage: 20,
+      check: () => candidate.skills && candidate.skills.length > 0,
+    },
+    {
+      name: "LinkedIn",
+      percentage: 10,
+      check: () => !!candidate.linkedIn,
+    },
+  ];
+
+  let totalPercentage = 0;
+  const missingSections = [];
+
+  sections.forEach((section) => {
+    if (section.check()) {
+      totalPercentage += section.percentage;
+    } else {
+      missingSections.push({
+        section: section.name,
+        percentage: section.percentage,
+      });
+    }
+  });
+
+  return {
+    totalPercentage,
+    missingSections,
+    isComplete: totalPercentage === 100,
+  };
 };

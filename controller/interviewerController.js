@@ -1,6 +1,7 @@
 import { Interviewer } from "../model/interviewerModel.js";
 import { Candidate } from "../model/candidateModel.js";
 import {
+  calculateInterviewerProfileCompletion,
   createInterviewerService,
   getInterviewerProfileServices,
   loginInterviewerService,
@@ -665,5 +666,26 @@ export const getInterviewerStatistics = async (req, res) => {
     return res.status(500).json({
       message: "Server error. Please try again later.",
     });
+  }
+};
+
+
+export const getInterviewerProfileCompletion = async (req, res) => {
+  try {
+    const interviewerId = req.user.id;
+    const interviewer = await Interviewer.findById(interviewerId);
+    if (!interviewer) {
+      return res.status(404).json({ message: "Interviewer not found" });
+    }
+
+    const completion = calculateInterviewerProfileCompletion(interviewer);
+    res.status(200).json({
+      success: true,
+      totalPercentage: completion.totalPercentage,
+      isComplete: completion.isComplete,
+      missingSections: completion.missingSections,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

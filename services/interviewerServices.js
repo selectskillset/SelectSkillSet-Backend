@@ -150,3 +150,70 @@ export const updateInterviewerProfileServices = async (
     throw error; // Throw instead of handling response
   }
 };
+
+export const calculateInterviewerProfileCompletion = (interviewer) => {
+  const sections = [
+    {
+      name: "Basic Details (Name, Email, Phone, etc.)",
+      percentage: 20,
+      check: () =>
+        interviewer.firstName &&
+        interviewer.email &&
+        interviewer.phoneNumber &&
+        interviewer.countryCode,
+    },
+    {
+      name: "Profile Photo",
+      percentage: 10,
+      check: () => interviewer.profilePhoto,
+    },
+    {
+      name: "Job Title",
+      percentage: 10,
+      check: () => interviewer.jobTitle,
+    },
+    {
+      name: "Experience",
+      percentage: 15,
+      check: () => interviewer.experience,
+    },
+    {
+      name: "Skills",
+      percentage: 15,
+      check: () => interviewer.skills && interviewer.skills.length > 0,
+    },
+    {
+      name: "Price",
+      percentage: 10,
+      check: () => interviewer.price,
+    },
+    {
+      name: "Availability",
+      percentage: 20,
+      check: () =>
+        interviewer.availability &&
+        interviewer.availability.dates &&
+        interviewer.availability.dates.length > 0,
+    },
+  ];
+
+  let totalPercentage = 0;
+  const missingSections = [];
+
+  sections.forEach((section) => {
+    if (section.check()) {
+      totalPercentage += section.percentage;
+    } else {
+      missingSections.push({
+        section: section.name,
+        percentage: section.percentage,
+      });
+    }
+  });
+
+  return {
+    totalPercentage,
+    missingSections,
+    isComplete: totalPercentage === 100,
+  };
+};

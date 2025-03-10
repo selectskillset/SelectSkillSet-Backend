@@ -10,6 +10,7 @@ import {
   getInterviewers as getInterviewersService,
   scheduleInterview as scheduleInterviewService,
   getScheduledInterviewsService,
+  calculateProfileCompletion,
 } from "../services/candidateService.js";
 import { interviewerFeedbackTemplate } from "../templates/interviewerFeedbackTemplate.js";
 import { sendEmail } from "../helper/emailService.js";
@@ -439,5 +440,24 @@ export const getCandidateStatistics = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Server error. Please try again later." });
+  }
+};
+
+export const getProfileCompletion = async (req, res) => {
+  try {
+    const candidateId = req.user.id;
+    const candidate = await Candidate.findById(candidateId);
+    if (!candidate)
+      return res.status(404).json({ message: "Candidate not found" });
+
+    const completion = calculateProfileCompletion(candidate);
+    res.status(200).json({
+      success: true,
+      totalPercentage: completion.totalPercentage,
+      isComplete: completion.isComplete,
+      missingSections: completion.missingSections,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
