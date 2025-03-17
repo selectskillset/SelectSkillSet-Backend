@@ -55,7 +55,8 @@ const candidateSchema = new mongoose.Schema(
             "Completed",
             "RescheduleRequested",
             "Re-Scheduled",
-            "Scheduled"
+            "Scheduled",
+            "Reschedule Requested"
           ],
           default: "Requested",
         },
