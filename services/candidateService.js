@@ -402,6 +402,11 @@ export const getScheduledInterviewsService = async (candidateId) => {
 };
 
 export const calculateProfileCompletion = (candidate) => {
+  // Validate input
+  if (!candidate || typeof candidate !== "object") {
+    throw new Error("Invalid candidate data provided.");
+  }
+
   const sections = [
     {
       name: "Basic Details (Name, Email, Phone, etc.)",
@@ -412,6 +417,7 @@ export const calculateProfileCompletion = (candidate) => {
         candidate.email &&
         candidate.phoneNumber &&
         candidate.countryCode,
+      details: ["firstName", "lastName", "email", "phoneNumber", "countryCode"],
     },
     {
       name: "Profile Photo",
@@ -427,6 +433,7 @@ export const calculateProfileCompletion = (candidate) => {
       name: "Work Experience",
       percentage: 20,
       check: () => !!candidate.jobTitle && !!candidate.location,
+      details: ["jobTitle", "location"],
     },
     {
       name: "Skills",
@@ -447,9 +454,13 @@ export const calculateProfileCompletion = (candidate) => {
     if (section.check()) {
       totalPercentage += section.percentage;
     } else {
+      // Provide granular feedback for missing sections
+      const missingDetails =
+        section.details?.filter((field) => !candidate[field]) || [];
       missingSections.push({
         section: section.name,
         percentage: section.percentage,
+        missingDetails,
       });
     }
   });

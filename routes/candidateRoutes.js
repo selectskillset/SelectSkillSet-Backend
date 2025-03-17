@@ -16,6 +16,8 @@ import {
   scheduleInterview,
   updateCandidateProfile,
   verifyOtpAndRegister,
+  approveRescheduleRequest,
+  rescheduleInterviewRequest,
 } from "../controller/candidateController.js";
 import authenticate from "../middleware/authenticate.js";
 
@@ -57,5 +59,12 @@ candidateRoutes.get(
 );
 
 candidateRoutes.get("/profile-completion", authenticate, getProfileCompletion);
+candidateRoutes.put("/approveReschedule", approveRescheduleRequest);
+
+candidateRoutes.put(
+  "/rescheduleInterviewRequest",
+  authenticate,
+  rescheduleInterviewRequest
+);
 
 export default candidateRoutes;

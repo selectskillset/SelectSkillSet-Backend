@@ -14,7 +14,9 @@ import {
   updateInterviewerProfile,
   updateInterviewRequest,
   verifyOtpAndRegisterInterviewer,
-  getInterviewerProfileCompletion
+  getInterviewerProfileCompletion,
+  rescheduleInterviewRequest, 
+  approveRescheduleRequest
 } from "../controller/interviewerController.js";
 import { upload } from "../helper/s3Upload.js";
 
@@ -52,6 +54,13 @@ interviewerRoutes.put(
   authenticate,
   updateInterviewRequest
 );
+interviewerRoutes.put(
+  "/rescheduleInterviewRequest",
+  authenticate,
+  rescheduleInterviewRequest
+);
+
+interviewerRoutes.put("/approveReschedule", approveRescheduleRequest);
 interviewerRoutes.post("/add-candidate-feedback", addCandidateFeedback);
 interviewerRoutes.get(
   "/get-interviewer-statistics",

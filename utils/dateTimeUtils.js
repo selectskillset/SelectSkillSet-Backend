@@ -1,67 +1,69 @@
+// Parse time slot (e.g., "1:00 AM - 2:00 AM")
 export const parseTimeSlot = (timeString) => {
-  if (!timeString || typeof timeString !== "string") return null;
+  try {
+    const endTime = timeString.split(" - ").pop().trim(); // Extract end time
+    const [time, period] = endTime.split(" ");
+    const [hoursStr, minutesStr] = time.split(":");
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr || "0", 10);
 
-  const [_, endTime] = timeString.split(" - ");
-  const [time, period] = endTime.split(" ");
-  let [hours, minutes] = time.split(":").map(Number);
+    // Convert to 24-hour format
+    if (period === "PM" && hours !== 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
 
-  // Convert to 24-hour format
-  hours =
-    period === "PM" && hours !== 12
-      ? hours + 12
-      : period === "AM" && hours === 12
-      ? 0
-      : hours;
-
-  return { hours, minutes };
+    return { hours, minutes };
+  } catch (error) {
+    console.error("Error parsing time:", error);
+    return null;
+  }
 };
-  
-  export const formatDate = (date) => {
-    if (!date || isNaN(new Date(date))) return "N/A";
-    return date.toLocaleDateString("en-IN");
-  };
-  
-  export const formatDay = (date) => {
-    if (!date || isNaN(new Date(date))) return "N/A";
-    return date.toLocaleDateString("en-IN", { weekday: "long" });
-  };
-  
-  export const formatTime = (timeString) => {
-    if (!timeString || typeof timeString !== "string") return "N/A";
-    return timeString.replace(
-      /(\d+:\d+) ([AP]M) - (\d+:\d+) ([AP]M)/,
-      "$1 $2 - $3 $4"
+
+// Format date as DD/MM/YYYY
+export const formatDate = (date, timezoneOffset) => {
+  const localDate = new Date(date.getTime() + timezoneOffset * 60 * 60 * 1000);
+  return localDate.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
+export const formatDay = (date) => {
+  const daysOfWeek = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  return daysOfWeek[date.getUTCDay()];
+};
+
+export const formatTime = (timeRange) => {
+  return timeRange; // Return the original time range as-is
+};
+
+export const isPastRequest = (requestDate, requestTime) => {
+  try {
+    const now = new Date(); // Current date and time
+    const [day, month, year] = requestDate.split("/"); // Parse date in DD/MM/YYYY format
+    const parsedDate = new Date(Date.UTC(year, month - 1, day)); // Create UTC date
+
+    // Parse time (e.g., "12:01 AM - 12:01 AM")
+    const endTimeSlot = parseTimeSlot(requestTime);
+    if (!endTimeSlot) return true; // Invalid time is treated as expired
+
+    // Set end datetime in UTC
+    const endDateTime = new Date(
+      Date.UTC(year, month - 1, day, endTimeSlot.hours, endTimeSlot.minutes)
     );
-  };
-  
-  export const isPastRequest = (requestDate, requestTime) => {
-    try {
-      if (!requestDate || !(requestDate instanceof Date) || isNaN(requestDate)) {
-        return true; // Invalid date
-      }
-  
-      // Parse time slot
-      const { hours, minutes } = parseTimeSlot(requestTime) || {};
-      if (hours === undefined || minutes === undefined) {
-        return true; // Invalid time
-      }
-  
-      // Create end date in local time
-      const endTimeLocal = new Date(
-        requestDate.getFullYear(),
-        requestDate.getMonth(),
-        requestDate.getDate(),
-        hours,
-        minutes
-      );
-  
-      // Get current time in local time
-      const currentTime = new Date();
-  
-      // Compare the timestamps directly
-      return currentTime > endTimeLocal;
-    } catch (error) {
-      console.error("Error in isPastRequest:", error);
-      return true; // Treat any parsing errors as expired
-    }
-  };
+
+    // Compare with current time
+    return endDateTime < now; // Return true if the request is in the past
+  } catch (error) {
+    console.error("Error checking past request:", error);
+    return true; // Treat invalid requests as expired
+  }
+};

@@ -9,8 +9,14 @@ import {
 } from "../services/interviewerServices.js";
 import dotenv from "dotenv";
 import { sendEmail } from "../helper/emailService.js";
-import { interviewerTemplate } from "../templates/interviewerTemplate.js";
-import { candidateTemplate } from "../templates/candidateTemplate.js";
+import {
+  interviewerTemplate,
+  rescheduleInterviewerTemplate,
+} from "../templates/interviewerTemplate.js";
+import {
+  candidateTemplate,
+  rescheduleCandidateTemplate,
+} from "../templates/candidateTemplate.js";
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { isSlotExpired } from "../utils/slotUtils.js";
@@ -18,8 +24,10 @@ import {
   formatDate,
   formatDay,
   formatTime,
-  isPastRequest,
+  parseTimeSlot,
 } from "../utils/dateTimeUtils.js";
+import { rescheduleRequestTemplate } from "../templates/rescheduleRequestTemplate.js";
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -285,36 +293,105 @@ const formatDateTime = (date, from, to) => {
 
 export const getInterviewRequests = async (req, res) => {
   try {
+    // Fetch the interviewer and populate candidate details
     const interviewer = await Interviewer.findById(req.user.id).populate(
       "interviewRequests.candidateId",
       "firstName lastName profilePhoto skills resume"
     );
 
     if (!interviewer) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Interviewer not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Interviewer not found",
+      });
     }
 
+    // Helper function to parse the date string
+    const parseDate = (dateString) => {
+      try {
+        const numericDate = dateString.split(", ").pop(); // Extract MM/DD/YYYY part
+        const [month, day, year] = numericDate.split("/").map(Number); // Parse as MM/DD/YYYY
+        return new Date(Date.UTC(year, month - 1, day)); // Create UTC date
+      } catch (error) {
+        console.error("Error parsing date:", error);
+        return null;
+      }
+    };
+
+    // Helper function to parse time slots (e.g., "8:00 AM - 9:00 AM")
+    const parseTimeSlot = (timeRange) => {
+      try {
+        const endTime = timeRange.split(" - ")[1]; // Extract the end time
+        const [time, period] = endTime.split(" ");
+        let [hours, minutes] = time.split(":").map(Number);
+
+        if (period === "PM" && hours !== 12) {
+          hours += 12; // Convert to 24-hour format
+        }
+        if (period === "AM" && hours === 12) {
+          hours = 0; // Handle midnight case
+        }
+
+        return { hours, minutes };
+      } catch (error) {
+        console.error("Error parsing time slot:", error);
+        return null;
+      }
+    };
+
+    // Get current date and time in UTC
+    const now = new Date();
+    const userTimezoneOffset = -(new Date().getTimezoneOffset() / 60); // Offset in hours
+    const userNow = new Date(now.getTime() + userTimezoneOffset * 60 * 60 * 1000);
+    const currentUTC = new Date(
+      Date.UTC(
+        userNow.getFullYear(),
+        userNow.getMonth(),
+        userNow.getDate(),
+        userNow.getHours(),
+        userNow.getMinutes()
+      )
+    );
+
+    // Process and filter interview requests
     const formattedRequests = interviewer.interviewRequests
       .map((request) => {
         try {
-          const requestDate = new Date(request.date);
+          const requestDate = parseDate(request.date);
+          if (!requestDate) return null;
 
-          // Skip if the request is in the past
-          if (isPastRequest(requestDate, request.time)) return null;
+          const endTimeSlot = parseTimeSlot(request.time);
+          if (!endTimeSlot) return null;
 
-          // Format response
+          // Combine date and time into a single UTC timestamp
+          const endDateTime = new Date(
+            Date.UTC(
+              requestDate.getFullYear(),
+              requestDate.getMonth(),
+              requestDate.getDate(),
+              endTimeSlot.hours,
+              endTimeSlot.minutes
+            )
+          );
+
+          // Filter out requests that have already ended
+          if (endDateTime < currentUTC) {
+            return null;
+          }
+
+          // Format the request data
           return {
             id: request._id,
-            name: `${request.candidateId?.firstName} ${
+            name: `${request.candidateId?.firstName || "Unknown"} ${
               request.candidateId?.lastName?.charAt(0) || ""
             }`.trim(),
-            profilePhoto: request.candidateId?.profilePhoto,
+            profilePhoto:
+              request.candidateId?.profilePhoto ||
+              "https://example.com/default-avatar.jpg",
             resume: request.candidateId?.resume,
-            skills: request.candidateId?.skills,
-            position: request.position || "N/A",
-            date: formatDate(requestDate),
+            skills: request.candidateId?.skills || [],
+            position: request.position || "Position not specified",
+            date: formatDate(requestDate, userTimezoneOffset),
             day: formatDay(requestDate),
             time: formatTime(request.time),
             status: request.status,
@@ -324,16 +401,19 @@ export const getInterviewRequests = async (req, res) => {
           return null;
         }
       })
-      .filter(Boolean)
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .filter(Boolean) // Remove null values
+      .sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
 
     return res.status(200).json({
       success: true,
       interviewRequests: formattedRequests,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("Error fetching interview requests:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };
 
@@ -348,10 +428,10 @@ export const updateInterviewRequest = async (req, res) => {
       });
     }
 
-    if (!["Approved", "Cancelled"].includes(status)) {
+    if (!["Approved", "Cancelled", "RescheduleRequested"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status. Only 'Approved' or 'Cancelled' are allowed.",
+        message: "Invalid status. Only 'Approved' or 'Cancelled'  are allowed.",
       });
     }
 
@@ -669,7 +749,6 @@ export const getInterviewerStatistics = async (req, res) => {
   }
 };
 
-
 export const getInterviewerProfileCompletion = async (req, res) => {
   try {
     const interviewerId = req.user.id;
@@ -687,5 +766,308 @@ export const getInterviewerProfileCompletion = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const rescheduleInterviewRequest = async (req, res) => {
+  try {
+    const { interviewRequestId, newDate, from, to } = req.body;
+
+    // Validation
+    const missingFields = [];
+    if (!interviewRequestId) missingFields.push("interviewRequestId");
+    if (!newDate) missingFields.push("newDate");
+    if (!from) missingFields.push("from");
+    if (!to) missingFields.push("to");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+    }
+
+    // Extract numeric date part (e.g., "20/03/2025") from "Thursday, 20/03/2025"
+    const numericDate = newDate.split(", ").pop();
+    if (!numericDate || !/^\d{2}\/\d{2}\/\d{4}$/.test(numericDate)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date format. Use DD/MM/YYYY",
+      });
+    }
+
+    // Time validation
+    const timeRegex = /^(1[0-2]|0?[1-9]):[0-5][0-9] [AP]M$/i;
+    const timeErrors = [];
+    if (!timeRegex.test(from)) timeErrors.push("from");
+    if (!timeRegex.test(to)) timeErrors.push("to");
+
+    if (timeErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid time format in: ${timeErrors.join(
+          ", "
+        )}. Use HH:MM AM/PM`,
+      });
+    }
+
+    // Process date and add day name
+    const [day, month, year] = numericDate.split("/");
+    const isoDate = new Date(`${year}-${month}-${day}T00:00:00Z`);
+    if (isNaN(isoDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid date values",
+      });
+    }
+
+    const dayName = isoDate.toLocaleDateString("en-US", { weekday: "long" }); // Get day name
+    const formattedDate = `${dayName}, ${isoDate.toLocaleDateString("en-US")}`; // Format: "Thursday, 3/14/2025"
+
+    const combinedTime = `${from} - ${to}`;
+
+    // Database updates
+    const updateOperations = await Promise.all([
+      Interviewer.updateOne(
+        { "interviewRequests._id": interviewRequestId },
+        {
+          $set: {
+            "interviewRequests.$.date": formattedDate, // Include day name
+            "interviewRequests.$.from": from,
+            "interviewRequests.$.to": to,
+            "interviewRequests.$.time": combinedTime,
+            "interviewRequests.$.status": "Reschedule Requested",
+            "interviewRequests.$.isoDate": isoDate,
+          },
+        }
+      ),
+      Candidate.updateOne(
+        { "scheduledInterviews._id": interviewRequestId },
+        {
+          $set: {
+            "scheduledInterviews.$.date": formattedDate, // Include day name
+            "scheduledInterviews.$.from": from,
+            "scheduledInterviews.$.to": to,
+            "scheduledInterviews.$.time": combinedTime,
+            "scheduledInterviews.$.status": "Reschedule Requested",
+            "scheduledInterviews.$.isoDate": isoDate,
+          },
+        }
+      ),
+    ]);
+
+    // Check update results
+    if (updateOperations.some((op) => op.matchedCount === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: "Interview request not found in records",
+      });
+    }
+
+    // Fetch required data
+    const [interviewer, candidate] = await Promise.all([
+      Interviewer.findOne(
+        { "interviewRequests._id": interviewRequestId },
+        { firstName: 1, "interviewRequests.$": 1 }
+      ).populate("interviewRequests.candidateId", "email firstName lastName"),
+      Candidate.findOne(
+        { "scheduledInterviews._id": interviewRequestId },
+        { email: 1, firstName: 1, _id: 1 }
+      ),
+    ]);
+
+    if (!interviewer?.interviewRequests?.[0] || !candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Associated users not found",
+      });
+    }
+
+    const interviewRequest = interviewer.interviewRequests[0];
+
+    // Prepare email data
+    const emailData = {
+      candidateName: candidate.firstName,
+      newDate: formattedDate, // Include day name
+      timeSlot: combinedTime,
+      interviewId: interviewRequestId,
+      candidateId: candidate._id,
+      url,
+      position: interviewRequest.position,
+      interviewerName: interviewer.firstName,
+    };
+
+    // Generate and send reschedule request email
+    const requestEmail = rescheduleRequestTemplate("candidate", {
+      ...emailData,
+      type: "candidate",
+      data: emailData,
+    });
+
+    await sendEmail(
+      candidate.email,
+      "Interview Reschedule Request - Action Required",
+      "",
+      requestEmail
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Reschedule request sent to candidate for approval",
+    });
+  } catch (error) {
+    console.error("Rescheduling error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
+
+export const approveRescheduleRequest = async (req, res) => {
+  try {
+    const { interviewRequestId, interviewerId } = req.body;
+    const url = process.env.WEBSITE_URL;
+
+    // Validate IDs first
+    if (!mongoose.Types.ObjectId.isValid(interviewRequestId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid interview request ID",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(interviewerId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid interviewer ID",
+      });
+    }
+
+    // Update status in both collections
+    const updateOperations = await Promise.all([
+      Interviewer.updateOne(
+        {
+          _id: interviewerId,
+          "interviewRequests._id": interviewRequestId,
+        },
+        {
+          $set: {
+            "interviewRequests.$.status": "Re-Scheduled",
+            "interviewRequests.$.rescheduleApproved": true,
+          },
+        }
+      ),
+      Candidate.updateOne(
+        { "scheduledInterviews._id": interviewRequestId },
+        {
+          $set: {
+            "scheduledInterviews.$.status": "Re-Scheduled",
+            "scheduledInterviews.$.rescheduleApproved": true,
+          },
+        }
+      ),
+    ]);
+
+    if (updateOperations.some((op) => op.modifiedCount === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found or already approved",
+      });
+    }
+
+    // Fetch updated data
+    const [interviewer, candidate] = await Promise.all([
+      Interviewer.findOne(
+        { "interviewRequests._id": interviewRequestId },
+        { email: 1, firstName: 1, "interviewRequests.$": 1 }
+      ).populate("interviewRequests.candidateId", "email firstName"),
+      Candidate.findOne(
+        { "scheduledInterviews._id": interviewRequestId },
+        { email: 1, firstName: 1, _id: 1 }
+      ),
+    ]);
+
+    const interviewRequest = interviewer.interviewRequests[0];
+
+    // Generate meet link if not exists (same logic as candidate version)
+    let meetLink = interviewRequest.meetLink;
+    if (!meetLink) {
+      const googleMeetLinks = [
+        "https://meet.google.com/xbn-baxk-deo",
+        "https://meet.google.com/ydn-cbxl-fpo",
+      ];
+      meetLink =
+        googleMeetLinks[Math.floor(Math.random() * googleMeetLinks.length)];
+
+      await Promise.all([
+        Interviewer.updateOne(
+          { "interviewRequests._id": interviewRequestId },
+          { $set: { "interviewRequests.$.meetLink": meetLink } }
+        ),
+        Candidate.updateOne(
+          { "scheduledInterviews._id": interviewRequestId },
+          { $set: { "scheduledInterviews.$.meetLink": meetLink } }
+        ),
+      ]);
+    }
+
+    // Prepare confirmation emails
+    const emailData = {
+      newDate: interviewRequest.date,
+      newTime: interviewRequest.time,
+      meetLink,
+      interviewId: interviewRequestId,
+      candidateId: candidate._id,
+      interviewerId: interviewer._id,
+      candidateName: candidate.firstName,
+      interviewerName: interviewer.firstName,
+      url,
+    };
+
+    // Send confirmation emails (use different templates if needed)
+    const [candidateEmail, interviewerEmail] = await Promise.all([
+      sendEmail(
+        candidate.email,
+        "Interview Reschedule Confirmed",
+        "",
+        rescheduleCandidateTemplate(
+          emailData.candidateName,
+          emailData.newDate,
+          emailData.newTime,
+          emailData.meetLink,
+          emailData.interviewId,
+          emailData.interviewerId,
+          emailData.url
+        )
+      ),
+      sendEmail(
+        interviewer.email,
+        "Interview Reschedule Confirmed",
+        "",
+        rescheduleInterviewerTemplate(
+          emailData.interviewerName,
+          emailData.candidateName,
+          emailData.newDate,
+          emailData.newTime,
+          emailData.meetLink,
+          emailData.interviewId,
+          emailData.candidateId,
+          emailData.url
+        )
+      ),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Reschedule confirmed and notifications sent",
+      meetLink,
+    });
+  } catch (error) {
+    console.error("Approval error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
   }
 };

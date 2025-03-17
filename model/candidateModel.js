@@ -48,7 +48,15 @@ const candidateSchema = new mongoose.Schema(
         price: { type: String },
         status: {
           type: String,
-          enum: ["Requested", "Approved", "Cancelled", "Completed"],
+          enum: [
+            "Requested",
+            "Approved",
+            "Cancelled",
+            "Completed",
+            "RescheduleRequested",
+            "Re-Scheduled",
+            "Scheduled"
+          ],
           default: "Requested",
         },
         googleMeetLink: { type: String },

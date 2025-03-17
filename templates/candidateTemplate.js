@@ -130,3 +130,140 @@ export const candidateTemplate = (
   </body>
   </html>
 `;
+
+export const rescheduleCandidateTemplate = (
+  candidateName,
+  newDate,
+  newTime,
+  meetLink,
+  interviewRequestId,
+  interviewerId,
+  url
+) => `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Rescheduled</title>
+    <style>
+      /* Maintain same CSS styles as original template */
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: #f4f7f9;
+        margin: 0;
+        padding: 0;
+        color: #333;
+      }
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .header {
+        background-color: #0077b5;
+        color: #ffffff;
+        padding: 30px;
+        text-align: center;
+        font-size: 28px;
+        font-weight: bold;
+        border-radius: 12px 12px 0 0;
+      }
+      .sub-header {
+        background-color: #e1f1ff;
+        color: #0077b5;
+        padding: 12px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: 600;
+        border-radius: 0 0 12px 12px;
+      }
+      .content {
+        padding: 40px;
+      }
+      .details {
+        margin: 25px 0;
+        font-size: 16px;
+      }
+      .date-time {
+        font-size: 16px;
+        margin-top: 10px;
+        font-weight: 600;
+      }
+      .meet-link-btn, .feedback-btn {
+        display: inline-block;
+        margin: 20px 0;
+        padding: 14px 30px;
+        background-color: #0077b5;
+        color: #ffffff !important;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 18px;
+        transition: background-color 0.3s ease;
+      }
+      .meet-link-btn:hover, .feedback-btn:hover {
+        background-color: #005f8a;
+      }
+      .footer {
+        background-color: #f4f7f9;
+        color: #555;
+        text-align: center;
+        padding: 20px;
+        font-size: 14px;
+        border-radius: 0 0 12px 12px;
+      }
+      .footer a {
+        color: #0077b5;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">SELECTSKILLSET</div>
+      <div class="sub-header">Your Interview Has Been Rescheduled</div>
+      <div class="content">
+        <p>Dear ${candidateName},</p>
+        <p>Your interview schedule has been updated. Please review the new details below:</p>
+        
+        <div class="details">
+          <p><strong>Revised Date:</strong> ${newDate}</p>
+          <p><strong>Updated Time:</strong> ${newTime}</p>
+          <p><strong>New Meeting Link:</strong> <a href="${meetLink}" target="_blank">${meetLink}</a></p>
+        </div>
+        
+        <a href="${meetLink}" class="meet-link-btn">Join Rescheduled Interview</a>
+        
+        <hr>
+        
+        <p>Important notes regarding this change:</p>
+        <ul>
+          <li>Your previous interview slot is no longer reserved</li>
+          <li>The interview duration remains unchanged</li>
+          <li>Please test the new meeting link 10 minutes before the interview</li>
+        </ul>
+
+        
+
+        <p>After your interview, we value your feedback about the process and your interviewer. This helps us improve our platform for all candidates:</p>
+        
+        <a href="${url}/candidate-feedback/${interviewerId}/${interviewRequestId}" class="feedback-btn">Share Interview Experience</a>
+        
+        <hr>
+        
+        <p>If you encounter any issues with the new schedule or need assistance, please contact us immediately at <a href="mailto:support@selectskillset.com">support@selectskillset.com</a>.</p>
+        
+        <p>We appreciate your understanding and wish you success in your interview!</p>
+      </div>
+      
+      <div class="footer">
+        This email was sent by <strong>SELECTSKILLSET</strong>. For any inquiries, <a href="mailto:support@selectskillset.com">contact our support team</a>.
+      </div>
+    </div>
+  </body>
+  </html>
+`;
