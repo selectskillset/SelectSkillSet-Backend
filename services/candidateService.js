@@ -375,34 +375,38 @@ export const getScheduledInterviewsService = async (candidateId) => {
       return { hours, minutes };
     };
 
-    // Get current time in UTC to avoid timezone issues
-    const currentUTCDate = new Date();
-    const currentUTC = Date.UTC(
-      currentUTCDate.getUTCFullYear(),
-      currentUTCDate.getUTCMonth(),
-      currentUTCDate.getUTCDate(),
-      currentUTCDate.getUTCHours(),
-      currentUTCDate.getUTCMinutes()
-    );
+    // Get current time in UTC
+    const currentUTC = Date.now();
+
+    // IST offset in milliseconds (5 hours 30 minutes)
+    const IST_OFFSET = 330 * 60 * 1000; // 5h30m in milliseconds
 
     const filteredInterviews = (candidate.scheduledInterviews || [])
       .filter((interview) => {
         try {
-          if (!interview.date) return false;
+          if (!interview.date || !interview.from) return false;
 
-          // Create interview date in UTC
-          const interviewDate = new Date(interview.date);
-          const timeComponents = parseTime(interview.from);
-          if (!timeComponents) return false;
+          // Convert stored UTC date to IST date
+          const utcDate = new Date(interview.date);
+          const istDate = new Date(utcDate.getTime() + IST_OFFSET);
+          
+          // Parse time components
+          const parsedTime = parseTime(interview.from);
+          if (!parsedTime) return false;
 
-          // Create UTC timestamp for interview start time
-          const interviewUTC = Date.UTC(
-            interviewDate.getUTCFullYear(),
-            interviewDate.getUTCMonth(),
-            interviewDate.getUTCDate(),
-            timeComponents.hours,
-            timeComponents.minutes
-          );
+          // Create IST datetime string
+          const year = istDate.getUTCFullYear();
+          const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(istDate.getUTCDate()).padStart(2, '0');
+          const hours = String(parsedTime.hours).padStart(2, '0');
+          const minutes = String(parsedTime.minutes).padStart(2, '0');
+
+          // Create ISO string with IST offset
+          const istDateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:00+05:30`;
+          
+          // Convert to UTC timestamp
+          const interviewDateTime = new Date(istDateTimeString);
+          const interviewUTC = interviewDateTime.getTime();
 
           return interviewUTC > currentUTC;
         } catch (error) {
@@ -414,9 +418,11 @@ export const getScheduledInterviewsService = async (candidateId) => {
         const interviewer = interview?.interviewerId;
         const date = interview.date ? new Date(interview.date) : null;
 
-        // Format date using UTC to ensure consistency
+        // Format date in IST
         const formattedDate = date
-          ? date.toLocaleDateString("en-IN", { timeZone: "UTC" })
+          ? new Date(date.getTime() + IST_OFFSET).toLocaleDateString("en-IN", { 
+              timeZone: "Asia/Kolkata" 
+            })
           : "Date not specified";
 
         return {
