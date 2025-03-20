@@ -21,29 +21,20 @@ const candidateSchema = new mongoose.Schema(
     linkedIn: { type: String },
     skills: [{ type: String }],
     // Added experiences array
-    experiences: [{
-      company: { type: String, required: true },
-      position: { type: String, required: true },
-      startDate: { 
-        type: String,
-        required: true,
-        validate: {
-          validator: (v) => /^\d{4}-\d{2}$/.test(v), // YYYY-MM format
-          message: "Start date must be in YYYY-MM format"
-        }
+    experiences: [
+      {
+        company: { type: String, required: true },
+        position: { type: String, required: true },
+        startDate: {
+          type: String,
+          required: true,
+        },
+        endDate: {
+          type: String,
+        },
+        current: { type: Boolean, default: false },
       },
-      endDate: {
-        type: String,
-        validate: {
-          validator: function(v) {
-            if (this.current) return v === null;
-            return /^\d{4}-\d{2}$/.test(v); // YYYY-MM or null
-          },
-          message: "End date must be in YYYY-MM format or null for current position"
-        }
-      },
-      current: { type: Boolean, default: false }
-    }],
+    ],
     statistics: {
       completedInterviews: { type: Number, default: 0 },
       averageRating: { type: Number, default: 0 },

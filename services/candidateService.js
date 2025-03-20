@@ -86,6 +86,7 @@ export const updateProfile = async (candidateId, data, res) => {
       "linkedIn",
       "skills",
       "resume",
+      "experiences"
     ];
 
     // Validate allowed fields

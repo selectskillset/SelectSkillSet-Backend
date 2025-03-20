@@ -204,7 +204,7 @@ export const getInterviewStatusesService = async () => {
 export const getOneCandidateService = async (id) => {
   try {
     const candidate = await Candidate.findById(id).select(
-      "firstName lastName email phoneNumber countryCode linkedIn skills isSuspended jobTitle location profilePhoto resume scheduledInterviews"
+      "firstName lastName email phoneNumber countryCode linkedIn skills isSuspended jobTitle location profilePhoto resume scheduledInterviews experiences"
     );
     return candidate;
   } catch (error) {
@@ -216,7 +216,7 @@ export const getOneCandidateService = async (id) => {
 export const getOneInterviewerService = async (id) => {
   try {
     const interviewer = await Interviewer.findById(id).select(
-      "firstName lastName phoneNumber countryCode totalInterviews price isSuspended email jobTitle location profilePhoto experience skills interviewRequests"
+      "firstName lastName phoneNumber countryCode totalInterviews price isSuspended email jobTitle location profilePhoto experience skills interviewRequests experiences"
     );
     return interviewer;
   } catch (error) {

@@ -145,7 +145,7 @@ export const getOneCandidateService = async (id,corporateId) => {
     // Fetch candidate data with lean() for better performance
     const candidate = await Candidate.findById(id)
       .select(
-        "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume scheduledInterviews"
+        "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume scheduledInterviews experiences"
       )
       .lean();
 

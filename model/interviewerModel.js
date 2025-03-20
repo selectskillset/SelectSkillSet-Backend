@@ -20,29 +20,20 @@ const interviewerSchema = new mongoose.Schema({
   totalInterviews: { type: String },
   price: { type: String },
   skills: [{ type: String }],
-  experiences: [{
-    company: { type: String, required: true },
-    position: { type: String, required: true },
-    startDate: { 
-      type: String,
-      required: true,
-      validate: {
-        validator: (v) => /^\d{4}-\d{2}$/.test(v), // YYYY-MM format
-        message: "Start date must be in YYYY-MM format"
-      }
+  experiences: [
+    {
+      company: { type: String, required: true },
+      position: { type: String, required: true },
+      startDate: {
+        type: String,
+        required: true,
+      },
+      endDate: {
+        type: String,
+      },
+      current: { type: Boolean, default: false },
     },
-    endDate: {
-      type: String,
-      validate: {
-        validator: function(v) {
-          if (this.current) return v === null;
-          return /^\d{4}-\d{2}$/.test(v); // YYYY-MM or null
-        },
-        message: "End date must be in YYYY-MM format or null for current position"
-      }
-    },
-    current: { type: Boolean, default: false }
-  }],
+  ],
   interviewRequests: [
     {
       candidateId: { type: mongoose.Schema.Types.ObjectId, ref: "Candidate" },
@@ -60,7 +51,7 @@ const interviewerSchema = new mongoose.Schema({
           "RescheduleRequested",
           "Re-Scheduled",
           "Scheduled",
-          "Reschedule Requested"
+          "Reschedule Requested",
         ],
         default: "Requested",
       },
