@@ -117,10 +117,14 @@ export const updateInterviewerProfileServices = async (
       "phoneNumber",
       "countryCode",
       "experience",
+      "experiences",
       "price",
       "skills",
     ];
 
+    if (data.experiences && typeof data.experiences === "string") {
+      data.experiences = JSON.parse(data.experiences);
+    }
     // Parse skills if needed
     if (data.skills && typeof data.skills === "string") {
       data.skills = JSON.parse(data.skills);

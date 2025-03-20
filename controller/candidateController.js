@@ -100,70 +100,63 @@ export const updateCandidateProfile = async (req, res) => {
     const { resume, profilePhoto } = req.files;
     const updates = { ...req.body };
 
-    // Parse JSON fields
-    if (updates.skills) {
-      try {
-        updates.skills = JSON.parse(updates.skills);
-      } catch (error) {
-        return res.status(400).json({
-          success: false,
-          message: "Invalid skills format. Expected JSON array.",
-        });
+    // Parse JSON fields first
+    const jsonFields = ["skills", "experiences"];
+    for (const field of jsonFields) {
+      if (updates[field]) {
+        try {
+          updates[field] = JSON.parse(updates[field]);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid ${field} format. Expected valid JSON array.`,
+          });
+        }
       }
     }
 
-    // Handle resume upload
-    if (resume) {
-      try {
-        const resumeUrl = await uploadToS3(resume[0], "resumes");
-        updates.resume = resumeUrl;
-      } catch (uploadError) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to upload resume.",
-        });
-      }
+    // Now process experiences as array
+    if (updates.experiences) {
+      updates.experiences = updates.experiences.map((exp) => ({
+        ...exp,
+        startDate: exp.startDate,
+        endDate: exp.current ? null : exp.endDate,
+      }));
     }
 
-    // Handle profilePhoto upload
-    if (profilePhoto) {
-      try {
-        const profilePhotoUrl = await uploadToS3(
-          profilePhoto[0],
-          "profile-photos"
-        );
-        updates.profilePhoto = profilePhotoUrl;
-      } catch (uploadError) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to upload profile photo.",
-        });
-      }
-    }
+    // File uploads
+    const [resumeUrl, profilePhotoUrl] = await Promise.all([
+      resume?.[0] ? uploadToS3(resume[0], "resumes") : null,
+      profilePhoto?.[0] ? uploadToS3(profilePhoto[0], "profile-photos") : null,
+    ]);
 
-    // Update the candidate profile
+    if (resumeUrl) updates.resume = resumeUrl;
+    if (profilePhotoUrl) updates.profilePhoto = profilePhotoUrl;
+
+    // Update profile
     const updatedProfile = await Candidate.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true, runValidators: true }
-    );
+      { new: true, runValidators: true, context: "query" }
+    ).select("-password -isSuspended -statistics.feedbacks");
 
     if (!updatedProfile) {
       return res.status(404).json({
         success: false,
-        message: "Profile update failed. Candidate not found.",
+        message: "Candidate profile not found",
       });
     }
 
     return res.status(200).json({
       success: true,
-      updatedProfile,
+      data: updatedProfile,
     });
   } catch (error) {
-    console.error("Error updating candidate profile:", error);
-    return res.status(500).json({
+    console.error("Profile update error:", error);
+    const statusCode = error.name === "ValidationError" ? 400 : 500;
+    return res.status(statusCode).json({
       success: false,
-      message: error.message || "Internal server error.",
+      message: error.message || "Internal server error",
     });
   }
 };
@@ -466,9 +459,6 @@ export const getProfileCompletion = async (req, res) => {
   }
 };
 
-
-
-
 export const approveRescheduleRequest = async (req, res) => {
   try {
     const { interviewRequestId, candidateId } = req.body;
@@ -602,8 +592,6 @@ export const approveRescheduleRequest = async (req, res) => {
   }
 };
 
-
-
 export const rescheduleInterviewRequest = async (req, res) => {
   try {
     const { interviewRequestId, newDate, from, to } = req.body;
@@ -649,7 +637,9 @@ export const rescheduleInterviewRequest = async (req, res) => {
     if (timeErrors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Invalid time format in: ${timeErrors.join(", ")}. Use HH:MM AM/PM`,
+        message: `Invalid time format in: ${timeErrors.join(
+          ", "
+        )}. Use HH:MM AM/PM`,
       });
     }
 
@@ -663,7 +653,7 @@ export const rescheduleInterviewRequest = async (req, res) => {
       });
     }
 
-   const dayName = isoDate.toLocaleDateString("en-US", { weekday: "long" }); // Get day name
+    const dayName = isoDate.toLocaleDateString("en-US", { weekday: "long" }); // Get day name
     const formattedDate = `${dayName}, ${isoDate.toLocaleDateString("en-US")}`; // Format: "Thursday, 3/14/2025"
 
     const combinedTime = `${from} - ${to}`;
@@ -671,9 +661,9 @@ export const rescheduleInterviewRequest = async (req, res) => {
     // Database updates
     const updateOperations = await Promise.all([
       Candidate.updateOne(
-        { 
+        {
           _id: candidateId,
-          "scheduledInterviews._id": interviewRequestId 
+          "scheduledInterviews._id": interviewRequestId,
         },
         {
           $set: {
@@ -710,13 +700,13 @@ export const rescheduleInterviewRequest = async (req, res) => {
     }
 
     // Fetch related data for email
-const [candidate, interviewer] = await Promise.all([
-  Candidate.findById(candidateId).select("email firstName lastName"),
-  Interviewer.findOne(
-    { "interviewRequests._id": interviewRequestId },
-    { _id: 1, firstName: 1, email: 1, "interviewRequests.$": 1 } 
-  ),
-]);
+    const [candidate, interviewer] = await Promise.all([
+      Candidate.findById(candidateId).select("email firstName lastName"),
+      Interviewer.findOne(
+        { "interviewRequests._id": interviewRequestId },
+        { _id: 1, firstName: 1, email: 1, "interviewRequests.$": 1 }
+      ),
+    ]);
 
     if (!interviewer?.interviewRequests?.[0] || !candidate) {
       return res.status(404).json({
@@ -766,5 +756,3 @@ const [candidate, interviewer] = await Promise.all([
     });
   }
 };
-
-
