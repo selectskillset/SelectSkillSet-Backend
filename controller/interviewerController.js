@@ -293,7 +293,6 @@ const formatDateTime = (date, from, to) => {
 
 export const getInterviewRequests = async (req, res) => {
   try {
-    // Fetch the interviewer and populate candidate details
     const interviewer = await Interviewer.findById(req.user.id).populate(
       "interviewRequests.candidateId",
       "firstName lastName profilePhoto skills resume"
@@ -306,94 +305,77 @@ export const getInterviewRequests = async (req, res) => {
       });
     }
 
-    // Helper function to parse the date string
-    const parseDate = (dateString) => {
-      try {
-        const numericDate = dateString.split(", ").pop(); // Extract MM/DD/YYYY part
-        const [month, day, year] = numericDate.split("/").map(Number); // Parse as MM/DD/YYYY
-        return new Date(Date.UTC(year, month - 1, day)); // Create UTC date
-      } catch (error) {
-        console.error("Error parsing date:", error);
-        return null;
-      }
+    // IST offset in milliseconds (5 hours 30 minutes)
+    const IST_OFFSET = 330 * 60 * 1000;
+
+    const parseTime = (timeStr) => {
+      if (!timeStr) return null;
+      const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!timeParts) return null;
+
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const period = (timeParts[3] || "AM").toUpperCase();
+
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+
+      return { hours, minutes };
     };
 
-    // Helper function to parse time slots (e.g., "8:00 AM - 9:00 AM")
-    const parseTimeSlot = (timeRange) => {
-      try {
-        const endTime = timeRange.split(" - ")[1]; // Extract the end time
-        const [time, period] = endTime.split(" ");
-        let [hours, minutes] = time.split(":").map(Number);
+    // Get current UTC timestamp
+    const currentUTC = Date.now();
 
-        if (period === "PM" && hours !== 12) {
-          hours += 12; // Convert to 24-hour format
-        }
-        if (period === "AM" && hours === 12) {
-          hours = 0; // Handle midnight case
-        }
-
-        return { hours, minutes };
-      } catch (error) {
-        console.error("Error parsing time slot:", error);
-        return null;
-      }
-    };
-
-    // Get current date and time in UTC
-    const now = new Date();
-    const userTimezoneOffset = -(new Date().getTimezoneOffset() / 60); // Offset in hours
-    const userNow = new Date(now.getTime() + userTimezoneOffset * 60 * 60 * 1000);
-    const currentUTC = new Date(
-      Date.UTC(
-        userNow.getFullYear(),
-        userNow.getMonth(),
-        userNow.getDate(),
-        userNow.getHours(),
-        userNow.getMinutes()
-      )
-    );
-
-    // Process and filter interview requests
     const formattedRequests = interviewer.interviewRequests
       .map((request) => {
         try {
-          const requestDate = parseDate(request.date);
-          if (!requestDate) return null;
+          if (!request.date || !request.time) return null;
 
-          const endTimeSlot = parseTimeSlot(request.time);
-          if (!endTimeSlot) return null;
+          // Convert stored UTC date to IST
+          const utcDate = new Date(request.date);
+          const istDate = new Date(utcDate.getTime() + IST_OFFSET);
 
-          // Combine date and time into a single UTC timestamp
-          const endDateTime = new Date(
-            Date.UTC(
-              requestDate.getFullYear(),
-              requestDate.getMonth(),
-              requestDate.getDate(),
-              endTimeSlot.hours,
-              endTimeSlot.minutes
-            )
-          );
+          // Parse time from request
+          const parsedTime = parseTime(request.time.split(" - ")[1]); // Get end time
+          if (!parsedTime) return null;
 
-          // Filter out requests that have already ended
-          if (endDateTime < currentUTC) {
-            return null;
-          }
+          // Create IST datetime string
+          const year = istDate.getUTCFullYear();
+          const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(istDate.getUTCDate()).padStart(2, "0");
+          const hours = String(parsedTime.hours).padStart(2, "0");
+          const minutes = String(parsedTime.minutes).padStart(2, "0");
 
-          // Format the request data
+          // Create ISO string with IST offset
+          const istDateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:00+05:30`;
+          const endDateTime = new Date(istDateTimeString).getTime();
+
+          // Filter out past interviews
+          if (endDateTime <= currentUTC) return null;
+
+          // Format display date in IST
+          const formattedDate = new Date(
+            utcDate.getTime() + IST_OFFSET
+          ).toLocaleDateString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            weekday: "long",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+
           return {
             id: request._id,
             name: `${request.candidateId?.firstName || "Unknown"} ${
               request.candidateId?.lastName?.charAt(0) || ""
             }`.trim(),
             profilePhoto:
-              request.candidateId?.profilePhoto ||
-              "https://example.com/default-avatar.jpg",
+              request.candidateId?.profilePhoto || "/default-avatar.jpg",
             resume: request.candidateId?.resume,
             skills: request.candidateId?.skills || [],
             position: request.position || "Position not specified",
-            date: formatDate(requestDate, userTimezoneOffset),
-            day: formatDay(requestDate),
-            time: formatTime(request.time),
+            date: formattedDate,
+            time: request.time, // Keep original time format
             status: request.status,
           };
         } catch (error) {
@@ -401,8 +383,8 @@ export const getInterviewRequests = async (req, res) => {
           return null;
         }
       })
-      .filter(Boolean) // Remove null values
-      .sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return res.status(200).json({
       success: true,
