@@ -351,46 +351,91 @@ export const getScheduledInterviewsService = async (candidateId) => {
   try {
     const candidate = await Candidate.findById(candidateId).populate({
       path: "scheduledInterviews.interviewerId",
-      select: "firstName lastName profilePhoto", // Ensure profilePhoto is selected
+      select: "firstName lastName profilePhoto",
     });
 
     if (!candidate) {
       return { success: false, message: "Candidate not found" };
     }
 
-    console.log("Candidate interviews:", candidate.scheduledInterviews);
+    // Utility function to parse time with error handling
+    const parseTime = (timeStr) => {
+      if (!timeStr) return null;
+      const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      if (!timeParts) return null;
+
+      let hours = parseInt(timeParts[1], 10);
+      const minutes = parseInt(timeParts[2], 10);
+      const period = (timeParts[3] || "AM").toUpperCase();
+
+      // Convert to 24-hour format
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+
+      return { hours, minutes };
+    };
+
+    // Get current time in UTC to avoid timezone issues
+    const currentUTCDate = new Date();
+    const currentUTC = Date.UTC(
+      currentUTCDate.getUTCFullYear(),
+      currentUTCDate.getUTCMonth(),
+      currentUTCDate.getUTCDate(),
+      currentUTCDate.getUTCHours(),
+      currentUTCDate.getUTCMinutes()
+    );
+
+    const filteredInterviews = (candidate.scheduledInterviews || [])
+      .filter((interview) => {
+        try {
+          if (!interview.date) return false;
+
+          // Create interview date in UTC
+          const interviewDate = new Date(interview.date);
+          const timeComponents = parseTime(interview.from);
+          if (!timeComponents) return false;
+
+          // Create UTC timestamp for interview start time
+          const interviewUTC = Date.UTC(
+            interviewDate.getUTCFullYear(),
+            interviewDate.getUTCMonth(),
+            interviewDate.getUTCDate(),
+            timeComponents.hours,
+            timeComponents.minutes
+          );
+
+          return interviewUTC > currentUTC;
+        } catch (error) {
+          console.error("Error processing interview:", error);
+          return false;
+        }
+      })
+      .map((interview) => {
+        const interviewer = interview?.interviewerId;
+        const date = interview.date ? new Date(interview.date) : null;
+
+        // Format date using UTC to ensure consistency
+        const formattedDate = date
+          ? date.toLocaleDateString("en-IN", { timeZone: "UTC" })
+          : "Date not specified";
+
+        return {
+          id: interview?._id?.toString() || "N/A",
+          interviewerId: interviewer?._id?.toString() || "N/A",
+          interviewerName: interviewer
+            ? `${interviewer.firstName} ${interviewer.lastName}`
+            : "Interviewer not available",
+          interviewerPhoto: interviewer?.profilePhoto || "",
+          date: formattedDate,
+          from: interview.from || "Time not specified",
+          to: interview.to || "Time not specified",
+          status: interview.status || "Status not specified",
+        };
+      });
 
     return {
       success: true,
-      interviews: (candidate.scheduledInterviews || []).map((interview) => {
-        const interviewer = interview?.interviewerId;
-        const interviewerName = interviewer
-          ? `${interviewer.firstName} ${interviewer.lastName}`
-          : "Interviewer not available";
-        const interviewerPhoto = interviewer?.profilePhoto || ""; // Add profilePhoto here
-        const interviewerId = interviewer?._id || "N/A"; // Include interviewerId with null check
-
-        const date = interview?.date
-          ? new Date(interview.date).toLocaleDateString("en-IN")
-          : "Date not specified";
-
-        const from = interview?.from || "Time not specified";
-        const to = interview?.to || "Time not specified";
-        const status = interview?.status || "Status not specified";
-
-        console.log("Interview status:", status);
-
-        return {
-          id: interview?._id || "N/A", // Interview ID
-          interviewerId: interviewerId, // Include interviewerId here
-          interviewerName: interviewerName,
-          interviewerPhoto: interviewerPhoto, // Include profile photo in response
-          date: date,
-          from: from, // Adding `from` in response
-          to: to, // Adding `to` in response
-          status: status,
-        };
-      }),
+      interviews: filteredInterviews,
     };
   } catch (error) {
     console.error("Error in getScheduledInterviewsService:", error);
