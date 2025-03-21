@@ -6,6 +6,7 @@ const interviewerSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   isSuspended: { type: Boolean, default: false },
+  hasExperience: { type: Boolean, default: false },
   location: { type: String },
   hasAcceptedTerms: { type: Boolean, default: false },
   phoneNumber: { type: String },
