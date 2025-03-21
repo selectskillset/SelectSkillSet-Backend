@@ -92,6 +92,13 @@ const interviewerSchema = new mongoose.Schema({
       },
     ],
   },
+  bankDetails: {
+    bankName: String,
+    accountHolderName: String,
+    accountNumber: String,
+    ifscCode: String,
+    branch: String,
+  },
 });
 
 export const Interviewer = mongoose.model("Interviewer", interviewerSchema);

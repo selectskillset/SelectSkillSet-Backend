@@ -1053,3 +1053,80 @@ export const approveRescheduleRequest = async (req, res) => {
     });
   }
 };
+
+export const getBankDetailsController = async (req, res) => {
+  try {
+    const interviewer = await Interviewer.findById(req.user.id).select(
+      "bankDetails"
+    );
+
+    if (!interviewer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Interviewer not found" });
+    }
+
+    const defaultDetails = {
+      bankName: "",
+      accountHolderName: "",
+      accountNumber: "",
+      ifscCode: "",
+      branch: "",
+    };
+
+    return res.status(200).json({
+      success: true,
+      details: interviewer.bankDetails || defaultDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const updateBankDetailsController = async (req, res) => {
+  try {
+    const { bankName, accountHolderName, accountNumber, ifscCode, branch } =
+      req.body;
+
+    const isValidIFSC = (ifsc) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc);
+    const isValidAccountNumber = (accNum) => /^\d{9,18}$/.test(accNum);
+
+    if (
+      !bankName ||
+      !accountHolderName ||
+      !accountNumber ||
+      !ifscCode ||
+      !branch
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "All fields are required" });
+    }
+
+    // Advanced validation
+    if (!isValidIFSC(ifscCode)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid IFSC format" });
+    }
+
+    if (!isValidAccountNumber(accountNumber)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid account number" });
+    }
+
+    const updatedInterviewer = await Interviewer.findByIdAndUpdate(
+      req.user.id,
+      { bankDetails: req.body },
+      { new: true, runValidators: true }
+    ).select("bankDetails");
+
+    return res.status(200).json({
+      success: true,
+      details: updatedInterviewer.bankDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+};

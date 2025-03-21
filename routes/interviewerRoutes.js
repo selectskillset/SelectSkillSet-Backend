@@ -16,7 +16,9 @@ import {
   verifyOtpAndRegisterInterviewer,
   getInterviewerProfileCompletion,
   rescheduleInterviewRequest, 
-  approveRescheduleRequest
+  approveRescheduleRequest,
+  getBankDetailsController,
+  updateBankDetailsController
 } from "../controller/interviewerController.js";
 import { upload } from "../helper/s3Upload.js";
 
@@ -73,6 +75,9 @@ interviewerRoutes.get(
   authenticate,
   getInterviewerProfileCompletion
 );
+
+interviewerRoutes.get("/bank-details", authenticate, getBankDetailsController);
+interviewerRoutes.post("/update-bank-details", authenticate, updateBankDetailsController);
 
 // interviewerRoutes.delete("/profile", deleteCandidateProfile);
 
