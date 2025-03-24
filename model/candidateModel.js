@@ -25,6 +25,9 @@ const candidateSchema = new mongoose.Schema(
       {
         company: { type: String, required: true },
         position: { type: String, required: true },
+        location: { type: String, required: true },
+        employmentType: { type: String, required: true },
+        description: { type: String },
         startDate: {
           type: String,
           required: true,
@@ -32,9 +35,13 @@ const candidateSchema = new mongoose.Schema(
         endDate: {
           type: String,
         },
+        totalExperience: { type: String },
+
         current: { type: Boolean, default: false },
       },
     ],
+    totalExperience: { type: String, default: "0 yrs 0 mo" },
+
     statistics: {
       completedInterviews: { type: Number, default: 0 },
       averageRating: { type: Number, default: 0 },

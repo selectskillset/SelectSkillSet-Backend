@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 
 import { Interviewer } from "../model/interviewerModel.js";
 import { uploadToS3 } from "../helper/s3Upload.js";
+import { calculateExperience } from "../helper/calculateExperience.js";
 
 export const createInterviewerService = async (data) => {
   const { firstName, lastName, email, password, countryCode, phoneNumber } =
@@ -78,7 +79,7 @@ export const loginInterviewerService = async (data, res) => {
 
 export const getInterviewerProfileServices = async (interviewerId, res) => {
   const interviewer = await Interviewer.findById(interviewerId).select(
-    "-password"
+    "-password -bankDetails -bookedSlots -hasAcceptedTerms -availability -interviewRequests -isSuspended"
   );
   if (!interviewer) {
     return res
@@ -122,18 +123,52 @@ export const updateInterviewerProfileServices = async (
       "skills",
     ];
 
+    // Safely parse JSON fields
     if (data.experiences && typeof data.experiences === "string") {
-      data.experiences = JSON.parse(data.experiences);
+      try {
+        data.experiences = JSON.parse(data.experiences);
+      } catch (error) {
+        throw new Error(
+          "Invalid experiences format. Expected valid JSON array."
+        );
+      }
     }
-    // Parse skills if needed
     if (data.skills && typeof data.skills === "string") {
-      data.skills = JSON.parse(data.skills);
+      try {
+        data.skills = JSON.parse(data.skills);
+      } catch (error) {
+        throw new Error("Invalid skills format. Expected valid JSON array.");
+      }
     }
 
     // Filter valid updates
     const filteredData = Object.keys(data)
       .filter((key) => allowedUpdates.includes(key))
       .reduce((obj, key) => ((obj[key] = data[key]), obj), {});
+
+    // Process experiences to calculate total experience
+    let totalYears = 0,
+      totalMonths = 0;
+    if (filteredData.experiences && Array.isArray(filteredData.experiences)) {
+      filteredData.experiences = filteredData.experiences.map((exp) => {
+        if (!exp.startDate) return { ...exp, totalExperience: "0 yrs 0 mo" };
+
+        const { years, months, total } = calculateExperience(
+          exp.startDate,
+          exp.current ? null : exp.endDate
+        );
+
+        totalYears += years;
+        totalMonths += months;
+
+        return { ...exp, totalExperience: total };
+      });
+
+      // Adjust total experience
+      totalYears += Math.floor(totalMonths / 12);
+      totalMonths %= 12;
+      filteredData.experience = `${totalYears} yrs ${totalMonths} mo`;
+    }
 
     // Handle file upload
     if (file) {
@@ -151,7 +186,7 @@ export const updateInterviewerProfileServices = async (
     });
   } catch (error) {
     console.error("Update error:", error);
-    throw error; // Throw instead of handling response
+    throw error;
   }
 };
 

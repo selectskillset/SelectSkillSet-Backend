@@ -22,6 +22,7 @@ import { rescheduleInterviewerTemplate } from "../templates/interviewerTemplate.
 import { rescheduleCandidateTemplate } from "../templates/candidateTemplate.js";
 import { rescheduleRequestTemplate } from "../templates/rescheduleRequestTemplate.js";
 import mongoose from "mongoose";
+import { calculateExperience } from "../helper/calculateExperience.js";
 
 export const registerCandidate = async (req, res) => {
   try {
@@ -115,14 +116,30 @@ export const updateCandidateProfile = async (req, res) => {
       }
     }
 
-    // Now process experiences as array
-    if (updates.experiences) {
-      updates.experiences = updates.experiences.map((exp) => ({
-        ...exp,
-        startDate: exp.startDate,
-        endDate: exp.current ? null : exp.endDate,
-      }));
+    // Process experiences and calculate total experience
+    let totalYears = 0,
+      totalMonths = 0;
+
+    if (updates.experiences && Array.isArray(updates.experiences)) {
+      updates.experiences = updates.experiences.map((exp) => {
+        if (!exp.startDate) return { ...exp, totalExperience: "0 yrs 0 mo" };
+
+        const { years, months, total } = calculateExperience(
+          exp.startDate,
+          exp.current ? null : exp.endDate
+        );
+
+        totalYears += years;
+        totalMonths += months;
+
+        return { ...exp, totalExperience: total };
+      });
     }
+
+    // Adjust total experience
+    totalYears += Math.floor(totalMonths / 12);
+    totalMonths = totalMonths % 12;
+    updates.totalExperience = `${totalYears} yrs ${totalMonths} mo`;
 
     // File uploads
     const [resumeUrl, profilePhotoUrl] = await Promise.all([
