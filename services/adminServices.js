@@ -216,7 +216,7 @@ export const getOneCandidateService = async (id) => {
 export const getOneInterviewerService = async (id) => {
   try {
     const interviewer = await Interviewer.findById(id).select(
-      "firstName lastName phoneNumber countryCode totalInterviews price isSuspended email jobTitle location profilePhoto experience skills interviewRequests experiences"
+      "firstName lastName phoneNumber countryCode totalInterviews price isSuspended email jobTitle location profilePhoto experience skills interviewRequests experiences isVerified"
     );
     return interviewer;
   } catch (error) {

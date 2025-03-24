@@ -203,7 +203,7 @@ export const getInterviewers = async (res) => {
   try {
     // Fetch all interviewers with the required fields
     const interviewers = await Interviewer.find().select(
-      "firstName lastName experience totalInterviews price profilePhoto jobTitle skills statistics bookedSlots"
+      "firstName lastName experience totalInterviews price profilePhoto jobTitle skills statistics bookedSlots isVerified"
     );
 
     // Filter interviewers based on complete information
@@ -234,6 +234,7 @@ export const getInterviewers = async (res) => {
           price: interviewer.price,
           profilePhoto: interviewer.profilePhoto,
           jobTitle: interviewer.jobTitle,
+          isVerified: interviewer.isVerified,
           skills: interviewer.skills,
           completedInterviews: completedInterviews || 0,
           averageRating: averageRating || 0,

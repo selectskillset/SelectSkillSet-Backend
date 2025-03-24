@@ -15,6 +15,7 @@ import {
   toggleCorporateController,
   toggleInterviewerController,
   updateAdminController,
+  verifyInterviewerController,
 } from "../controller/adminController.js";
 import authenticate from "../middleware/authenticate.js";
 
@@ -48,5 +49,9 @@ adminRoutes.put("/toggleInterviewer/:id", toggleInterviewerController);
 
 // Enable/Disable Corporate Account
 adminRoutes.put("/toggleCorporate/:id", toggleCorporateController);
+
+adminRoutes.put("/verifyInterviewer/:id", verifyInterviewerController);
+
+
 
 export default adminRoutes;

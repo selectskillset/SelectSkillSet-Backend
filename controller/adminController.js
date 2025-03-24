@@ -25,6 +25,10 @@ import {
   suspendAccountTemplate,
 } from "../templates/accountActionsTemplate.js";
 import { deleteAccountTemplate } from "../templates/deleteAccountTemplate.js";
+import {
+  getUnverifyTemplate,
+  getVerifyTemplate,
+} from "../templates/verifyInterviewerProfileTemplate.js";
 
 export const createAdminController = async (req, res) => {
   try {
@@ -419,5 +423,44 @@ export const toggleCorporateController = async (req, res) => {
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+const sendVerificationEmail = async (email, name, isVerified) => {
+  const subject = isVerified
+    ? "Your SelectSkillSet Profile Has Been Verified"
+    : "Verification Removed From Your SelectSkillSet Profile";
+
+  const html = isVerified ? getVerifyTemplate(name) : getUnverifyTemplate(name);
+
+  return sendEmail(email, subject, "", html);
+};
+
+export const verifyInterviewerController = async (req, res) => {
+  try {
+    const { verify } = req.body;
+    const interviewer = await Interviewer.findByIdAndUpdate(
+      req.params.id,
+      { isVerified: verify },
+      { new: true }
+    );
+
+    if (!interviewer) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Interviewer not found" });
+    }
+
+    // Send verification email
+    await sendVerificationEmail(
+      interviewer.email,
+      `${interviewer.firstName} ${interviewer.lastName}`,
+      verify
+    );
+
+    res.json({ success: true, data: interviewer });
+  } catch (error) {
+    console.error("Error verifying interviewer:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

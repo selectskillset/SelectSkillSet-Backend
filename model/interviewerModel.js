@@ -9,6 +9,10 @@ const interviewerSchema = new mongoose.Schema({
   hasExperience: { type: Boolean, default: false },
   location: { type: String },
   hasAcceptedTerms: { type: Boolean, default: false },
+  isVerified: {
+    type: Boolean,
+    default: false,
+  },
   phoneNumber: { type: String },
   countryCode: { type: String },
   jobTitle: { type: String },
