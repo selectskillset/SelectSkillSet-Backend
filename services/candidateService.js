@@ -360,7 +360,9 @@ export const getScheduledInterviewsService = async (candidateId) => {
       return { success: false, message: "Candidate not found" };
     }
 
-    // Utility function to parse time with error handling
+    // IST offset in milliseconds (5 hours 30 minutes)
+    const IST_OFFSET = 330 * 60 * 1000;
+
     const parseTime = (timeStr) => {
       if (!timeStr) return null;
       const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
@@ -370,76 +372,67 @@ export const getScheduledInterviewsService = async (candidateId) => {
       const minutes = parseInt(timeParts[2], 10);
       const period = (timeParts[3] || "AM").toUpperCase();
 
-      // Convert to 24-hour format
       if (period === "PM" && hours !== 12) hours += 12;
       if (period === "AM" && hours === 12) hours = 0;
 
       return { hours, minutes };
     };
 
-    // Get current time in UTC
+    // Get current UTC timestamp
     const currentUTC = Date.now();
 
-    // IST offset in milliseconds (5 hours 30 minutes)
-    const IST_OFFSET = 330 * 60 * 1000; // 5h30m in milliseconds
-
     const filteredInterviews = (candidate.scheduledInterviews || [])
-      .filter((interview) => {
+      .map((interview) => {
         try {
-          if (!interview.date || !interview.from) return false;
+          if (!interview.date || !interview.from) return null;
 
           // Convert stored UTC date to IST date
           const utcDate = new Date(interview.date);
           const istDate = new Date(utcDate.getTime() + IST_OFFSET);
-          
-          // Parse time components
+
+          // Parse time from "from" field
           const parsedTime = parseTime(interview.from);
-          if (!parsedTime) return false;
+          if (!parsedTime) return null;
 
           // Create IST datetime string
           const year = istDate.getUTCFullYear();
-          const month = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-          const day = String(istDate.getUTCDate()).padStart(2, '0');
-          const hours = String(parsedTime.hours).padStart(2, '0');
-          const minutes = String(parsedTime.minutes).padStart(2, '0');
+          const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+          const day = String(istDate.getUTCDate()).padStart(2, "0");
+          const hours = String(parsedTime.hours).padStart(2, "0");
+          const minutes = String(parsedTime.minutes).padStart(2, "0");
 
-          // Create ISO string with IST offset
           const istDateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:00+05:30`;
-          
-          // Convert to UTC timestamp
-          const interviewDateTime = new Date(istDateTimeString);
-          const interviewUTC = interviewDateTime.getTime();
+          const interviewDateTime = new Date(istDateTimeString).getTime();
 
-          return interviewUTC > currentUTC;
+          if (interviewDateTime <= currentUTC) return null; // Skip past interviews
+
+          const formattedDate = istDate.toLocaleDateString("en-IN", {
+            timeZone: "Asia/Kolkata",
+            weekday: "long",
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          });
+
+          return {
+            id: interview._id.toString(),
+            interviewerId: interview.interviewerId?._id.toString() || "N/A",
+            interviewerName: interview.interviewerId
+              ? `${interview.interviewerId.firstName} ${interview.interviewerId.lastName}`
+              : "Interviewer not available",
+            interviewerPhoto: interview.interviewerId?.profilePhoto || "",
+            date: formattedDate,
+            from: interview.from,
+            to: interview.to || "Time not specified",
+            status: interview.status || "Status not specified",
+          };
         } catch (error) {
           console.error("Error processing interview:", error);
-          return false;
+          return null;
         }
       })
-      .map((interview) => {
-        const interviewer = interview?.interviewerId;
-        const date = interview.date ? new Date(interview.date) : null;
-
-        // Format date in IST
-        const formattedDate = date
-          ? new Date(date.getTime() + IST_OFFSET).toLocaleDateString("en-IN", { 
-              timeZone: "Asia/Kolkata" 
-            })
-          : "Date not specified";
-
-        return {
-          id: interview?._id?.toString() || "N/A",
-          interviewerId: interviewer?._id?.toString() || "N/A",
-          interviewerName: interviewer
-            ? `${interviewer.firstName} ${interviewer.lastName}`
-            : "Interviewer not available",
-          interviewerPhoto: interviewer?.profilePhoto || "",
-          date: formattedDate,
-          from: interview.from || "Time not specified",
-          to: interview.to || "Time not specified",
-          status: interview.status || "Status not specified",
-        };
-      });
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     return {
       success: true,
@@ -453,6 +446,7 @@ export const getScheduledInterviewsService = async (candidateId) => {
     };
   }
 };
+
 
 export const calculateProfileCompletion = (candidate) => {
   // Validate input
