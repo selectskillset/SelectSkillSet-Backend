@@ -127,6 +127,7 @@ export const getInterviewersDetailsService = async () => {
           location: 1,
           profilePhoto: 1,
           experience: 1,
+          isVerified: 1,
           skills: 1,
           interviewRequests: 1,
         },
