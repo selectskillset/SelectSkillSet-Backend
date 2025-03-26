@@ -20,12 +20,6 @@ import {
 import { candidateFeedbackTemplate } from "../templates/candidateFeedbackTemplate.js";
 import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { isSlotExpired } from "../utils/slotUtils.js";
-import {
-  formatDate,
-  formatDay,
-  formatTime,
-  parseTimeSlot,
-} from "../utils/dateTimeUtils.js";
 import { rescheduleRequestTemplate } from "../templates/rescheduleRequestTemplate.js";
 import mongoose from "mongoose";
 

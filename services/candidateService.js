@@ -360,79 +360,111 @@ export const getScheduledInterviewsService = async (candidateId) => {
       return { success: false, message: "Candidate not found" };
     }
 
-    // IST offset in milliseconds (5 hours 30 minutes)
-    const IST_OFFSET = 330 * 60 * 1000;
-
+    // Improved time parser that handles more formats
     const parseTime = (timeStr) => {
       if (!timeStr) return null;
-      const timeParts = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      // Supports: "14:30", "2:30 PM", "02:30:00", "2:30:45 PM"
+      const timeParts = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
       if (!timeParts) return null;
 
       let hours = parseInt(timeParts[1], 10);
       const minutes = parseInt(timeParts[2], 10);
-      const period = (timeParts[3] || "AM").toUpperCase();
+      const period = (timeParts[4] || "").toUpperCase();
 
-      if (period === "PM" && hours !== 12) hours += 12;
+      // Convert 12h to 24h format
+      if (period === "PM" && hours < 12) hours += 12;
       if (period === "AM" && hours === 12) hours = 0;
 
       return { hours, minutes };
     };
 
-    // Get current UTC timestamp
-    const currentUTC = Date.now();
+    // Get current time in milliseconds (UTC)
+    const now = new Date();
+    const currentUTC = now.getTime();
 
     const filteredInterviews = (candidate.scheduledInterviews || [])
       .map((interview) => {
         try {
-          if (!interview.date || !interview.from) return null;
+          // Skip if missing essential fields
+          if (!interview.date || !interview.from || !interview.to) {
+            return null;
+          }
 
-          // Convert stored UTC date to IST date
-          const utcDate = new Date(interview.date);
-          const istDate = new Date(utcDate.getTime() + IST_OFFSET);
+          // Parse the stored date (assuming ISO string or UTC timestamp)
+          const interviewDate = new Date(interview.date);
+          if (isNaN(interviewDate.getTime())) {
+            return null;
+          }
 
-          // Parse time from "from" field
-          const parsedTime = parseTime(interview.from);
-          if (!parsedTime) return null;
+          // Get start and end times
+          const startTime = parseTime(interview.from);
+          const endTime = parseTime(interview.to);
+          if (!startTime || !endTime) {
+            return null;
+          }
 
-          // Create IST datetime string
-          const year = istDate.getUTCFullYear();
-          const month = String(istDate.getUTCMonth() + 1).padStart(2, "0");
-          const day = String(istDate.getUTCDate()).padStart(2, "0");
-          const hours = String(parsedTime.hours).padStart(2, "0");
-          const minutes = String(parsedTime.minutes).padStart(2, "0");
+          // Create start and end Date objects in local timezone
+          const startDateTime = new Date(
+            interviewDate.getFullYear(),
+            interviewDate.getMonth(),
+            interviewDate.getDate(),
+            startTime.hours,
+            startTime.minutes
+          );
 
-          const istDateTimeString = `${year}-${month}-${day}T${hours}:${minutes}:00+05:30`;
-          const interviewDateTime = new Date(istDateTimeString).getTime();
+          const endDateTime = new Date(
+            interviewDate.getFullYear(),
+            interviewDate.getMonth(),
+            interviewDate.getDate(),
+            endTime.hours,
+            endTime.minutes
+          );
 
-          if (interviewDateTime <= currentUTC) return null; // Skip past interviews
+          // Skip if interview has already ended
+          if (endDateTime.getTime() <= currentUTC) {
+            return null;
+          }
 
-          const formattedDate = istDate.toLocaleDateString("en-IN", {
+          // Format date for display (IST)
+          const formattedDate = interviewDate.toLocaleDateString("en-IN", {
             timeZone: "Asia/Kolkata",
-            weekday: "long",
+            weekday: "short",
             year: "numeric",
             month: "short",
             day: "numeric",
           });
 
+          // Format time for display (IST)
+          const formatDisplayTime = (time) => {
+            return time.toLocaleTimeString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true
+            });
+          };
+
+          const interviewer = interview?.interviewerId;
           return {
-            id: interview._id.toString(),
-            interviewerId: interview.interviewerId?._id.toString() || "N/A",
-            interviewerName: interview.interviewerId
-              ? `${interview.interviewerId.firstName} ${interview.interviewerId.lastName}`
+            id: interview?._id?.toString(),
+            interviewerId: interviewer?._id?.toString(),
+            interviewerName: interviewer
+              ? `${interviewer.firstName} ${interviewer.lastName}`
               : "Interviewer not available",
-            interviewerPhoto: interview.interviewerId?.profilePhoto || "",
+            interviewerPhoto: interviewer?.profilePhoto || "",
             date: formattedDate,
-            from: interview.from,
-            to: interview.to || "Time not specified",
-            status: interview.status || "Status not specified",
+            from: formatDisplayTime(startDateTime),
+            to: formatDisplayTime(endDateTime),
+            status: interview.status || "Scheduled",
+            utcTimestamp: startDateTime.getTime()
           };
         } catch (error) {
           console.error("Error processing interview:", error);
           return null;
         }
       })
-      .filter(Boolean)
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .filter(interview => interview !== null) // Remove null entries
+      .sort((a, b) => a.utcTimestamp - b.utcTimestamp); // Sort by date
 
     return {
       success: true,
@@ -446,7 +478,6 @@ export const getScheduledInterviewsService = async (candidateId) => {
     };
   }
 };
-
 
 export const calculateProfileCompletion = (candidate) => {
   // Validate input
