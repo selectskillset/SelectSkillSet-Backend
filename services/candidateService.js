@@ -360,10 +360,9 @@ export const getScheduledInterviewsService = async (candidateId) => {
       return { success: false, message: "Candidate not found" };
     }
 
-    // Improved time parser that handles more formats
+    // Time parser (keep as is)
     const parseTime = (timeStr) => {
       if (!timeStr) return null;
-      // Supports: "14:30", "2:30 PM", "02:30:00", "2:30:45 PM"
       const timeParts = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
       if (!timeParts) return null;
 
@@ -371,77 +370,57 @@ export const getScheduledInterviewsService = async (candidateId) => {
       const minutes = parseInt(timeParts[2], 10);
       const period = (timeParts[4] || "").toUpperCase();
 
-      // Convert 12h to 24h format
       if (period === "PM" && hours < 12) hours += 12;
       if (period === "AM" && hours === 12) hours = 0;
 
       return { hours, minutes };
     };
 
-    // Get current time in milliseconds (UTC)
-    const now = new Date();
-    const currentUTC = now.getTime();
+    // Get current UTC time
+    const currentUTC = Date.now();
 
     const filteredInterviews = (candidate.scheduledInterviews || [])
       .map((interview) => {
         try {
-          // Skip if missing essential fields
-          if (!interview.date || !interview.from || !interview.to) {
-            return null;
-          }
+          if (!interview.date || !interview.from || !interview.to) return null;
 
-          // Parse the stored date (assuming ISO string or UTC timestamp)
-          const interviewDate = new Date(interview.date);
-          if (isNaN(interviewDate.getTime())) {
-            return null;
-          }
+          // Parse the stored date (assumed to be UTC)
+          const utcDate = new Date(interview.date);
+          if (isNaN(utcDate.getTime())) return null;
 
-          // Get start and end times
+          // Parse times (these are already in IST)
           const startTime = parseTime(interview.from);
           const endTime = parseTime(interview.to);
-          if (!startTime || !endTime) {
-            return null;
-          }
+          if (!startTime || !endTime) return null;
 
-          // Create start and end Date objects in local timezone
-          const startDateTime = new Date(
-            interviewDate.getFullYear(),
-            interviewDate.getMonth(),
-            interviewDate.getDate(),
+          // Create UTC datetimes by applying IST offset (+5:30)
+          const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+          const startUTC = Date.UTC(
+            utcDate.getUTCFullYear(),
+            utcDate.getUTCMonth(),
+            utcDate.getUTCDate(),
             startTime.hours,
             startTime.minutes
-          );
+          ) - istOffset;
 
-          const endDateTime = new Date(
-            interviewDate.getFullYear(),
-            interviewDate.getMonth(),
-            interviewDate.getDate(),
+          const endUTC = Date.UTC(
+            utcDate.getUTCFullYear(),
+            utcDate.getUTCMonth(),
+            utcDate.getUTCDate(),
             endTime.hours,
             endTime.minutes
-          );
+          ) - istOffset;
 
-          // Skip if interview has already ended
-          if (endDateTime.getTime() <= currentUTC) {
-            return null;
-          }
+          // Filter out past interviews
+          if (endUTC <= currentUTC) return null;
 
-          // Format date for display (IST)
-          const formattedDate = interviewDate.toLocaleDateString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            weekday: "short",
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          });
-
-          // Format time for display (IST)
-          const formatDisplayTime = (time) => {
-            return time.toLocaleTimeString("en-IN", {
-              timeZone: "Asia/Kolkata",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: true
-            });
+          // Format display times (show exactly as stored)
+          const formatDisplayTime = (timeStr) => {
+            // Return original time string if valid
+            if (typeof timeStr === 'string' && timeStr.match(/\d{1,2}:\d{2}\s*(AM|PM)?/i)) {
+              return timeStr;
+            }
+            return "Time not specified";
           };
 
           const interviewer = interview?.interviewerId;
@@ -452,19 +431,25 @@ export const getScheduledInterviewsService = async (candidateId) => {
               ? `${interviewer.firstName} ${interviewer.lastName}`
               : "Interviewer not available",
             interviewerPhoto: interviewer?.profilePhoto || "",
-            date: formattedDate,
-            from: formatDisplayTime(startDateTime),
-            to: formatDisplayTime(endDateTime),
+            date: utcDate.toLocaleDateString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              weekday: "short",
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            }),
+            from: formatDisplayTime(interview.from),
+            to: formatDisplayTime(interview.to),
             status: interview.status || "Scheduled",
-            utcTimestamp: startDateTime.getTime()
+            utcTimestamp: startUTC
           };
         } catch (error) {
           console.error("Error processing interview:", error);
           return null;
         }
       })
-      .filter(interview => interview !== null) // Remove null entries
-      .sort((a, b) => a.utcTimestamp - b.utcTimestamp); // Sort by date
+      .filter(Boolean)
+      .sort((a, b) => a.utcTimestamp - b.utcTimestamp);
 
     return {
       success: true,
