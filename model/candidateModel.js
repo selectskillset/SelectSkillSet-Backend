@@ -12,6 +12,9 @@ const candidateSchema = new mongoose.Schema(
     jobTitle: { type: String },
     location: { type: String },
     hasAcceptedTerms: { type: Boolean, default: false },
+    hasAcceptedPrivacyPolicy: { type: Boolean, required: true },
+    gdprConsent: { type: Boolean, required: true },
+    consentTimestamp: { type: Date, default: Date.now },
     profilePhoto: {
       type: String,
       default:

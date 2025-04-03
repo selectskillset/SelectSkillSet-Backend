@@ -9,6 +9,9 @@ const interviewerSchema = new mongoose.Schema({
   hasExperience: { type: Boolean, default: false },
   location: { type: String },
   hasAcceptedTerms: { type: Boolean, default: false },
+  hasAcceptedPrivacyPolicy: { type: Boolean, required: true  },
+  gdprConsent: { type: Boolean, required: true  },
+  consentTimestamp: { type: Date, default: Date.now },
   isVerified: {
     type: Boolean,
     default: false,

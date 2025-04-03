@@ -6,8 +6,18 @@ import { uploadToS3 } from "../helper/s3Upload.js";
 import { calculateExperience } from "../helper/calculateExperience.js";
 
 export const createInterviewerService = async (data) => {
-  const { firstName, lastName, email, password, countryCode, phoneNumber } =
-    data;
+  const {
+    firstName,
+    lastName,
+    email,
+    password,
+    countryCode,
+    phoneNumber,
+    hasAcceptedTerms,
+    hasAcceptedPrivacyPolicy,
+    gdprConsent,
+    hasExperience,
+  } = data;
 
   // Validate required fields
   if (
@@ -16,7 +26,11 @@ export const createInterviewerService = async (data) => {
     !email ||
     !password ||
     !countryCode ||
-    !phoneNumber
+    !phoneNumber ||
+    !hasAcceptedTerms ||
+    !hasAcceptedPrivacyPolicy ||
+    !gdprConsent ||
+    !hasExperience
   ) {
     throw new Error("Missing required fields");
   }
@@ -38,6 +52,10 @@ export const createInterviewerService = async (data) => {
     password: hashedPassword,
     countryCode,
     phoneNumber,
+    hasAcceptedTerms,
+    hasAcceptedPrivacyPolicy,
+    gdprConsent,
+    hasExperience,
   });
 
   // Save the interviewer to the database

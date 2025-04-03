@@ -138,7 +138,6 @@ export const getInterviewersDetailsService = async () => {
   }
 };
 
-
 export const getCorporateDetailsService = async () => {
   try {
     return await Corporate.aggregate([
@@ -148,7 +147,7 @@ export const getCorporateDetailsService = async () => {
           email: 1,
           profilePhoto: 1,
           phoneNumber: 1,
-          countryCode:1,
+          countryCode: 1,
           companyName: 1,
           location: 1,
           industry: 1,
@@ -162,7 +161,6 @@ export const getCorporateDetailsService = async () => {
   }
 };
 
-
 export const getTotalCountsService = async () => {
   try {
     const totalCandidates = await Candidate.countDocuments();
@@ -173,7 +171,6 @@ export const getTotalCountsService = async () => {
     throw new Error(error.message);
   }
 };
-
 
 export const getInterviewStatusesService = async () => {
   try {
@@ -199,7 +196,6 @@ export const getInterviewStatusesService = async () => {
     throw new Error(error.message);
   }
 };
-
 
 // Get One Candidate Service
 export const getOneCandidateService = async (id) => {

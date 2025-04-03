@@ -42,6 +42,9 @@ export const createCorporateService = async (data) => {
     companyName,
     location,
     industry,
+    hasAcceptedTerms,
+    hasAcceptedPrivacyPolicy,
+    gdprConsent,
   } = data;
 
   // Validate required fields
@@ -51,7 +54,10 @@ export const createCorporateService = async (data) => {
     !password ||
     !countryCode ||
     !phoneNumber ||
-    !companyName
+    !companyName ||
+    !hasAcceptedTerms ||
+    !hasAcceptedPrivacyPolicy ||
+    !gdprConsent
   ) {
     throw new Error("Missing required fields");
   }
@@ -75,6 +81,9 @@ export const createCorporateService = async (data) => {
     companyName,
     location,
     industry,
+    hasAcceptedTerms,
+    hasAcceptedPrivacyPolicy,
+    gdprConsent,
   });
 
   // Save the corporate to the database
@@ -135,7 +144,7 @@ export const getCandidatesByRatingService = async () => {
       "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
     );
 };
-export const getOneCandidateService = async (id,corporateId) => {
+export const getOneCandidateService = async (id, corporateId) => {
   try {
     // Validate input
     if (!id) {
@@ -159,18 +168,19 @@ export const getOneCandidateService = async (id,corporateId) => {
       }
 
       const scheduledInterview = candidate.scheduledInterviews.find(
-        (interview) => 
+        (interview) =>
           interview._id.toString() === feedback.interviewRequestId.toString()
       );
 
-      return scheduledInterview ? {
-        ...feedback,
-        date: scheduledInterview.date,
-        from: scheduledInterview.from,
-        to: scheduledInterview.to,
-      } : feedback;
+      return scheduledInterview
+        ? {
+            ...feedback,
+            date: scheduledInterview.date,
+            from: scheduledInterview.from,
+            to: scheduledInterview.to,
+          }
+        : feedback;
     });
-
 
     // Check if the candidate is bookmarked by the corporate user
     let isBookmarked = false;
@@ -186,18 +196,16 @@ export const getOneCandidateService = async (id,corporateId) => {
       ...candidate,
       statistics: {
         ...candidate.statistics,
-        feedbacks: enrichedFeedbacks
+        feedbacks: enrichedFeedbacks,
       },
       isBookmarked,
     };
     delete response.scheduledInterviews;
 
-    
-
     return response;
   } catch (error) {
-    throw error instanceof Error 
-      ? error 
+    throw error instanceof Error
+      ? error
       : new Error(`Failed to fetch candidate: ${error}`);
   }
 };
