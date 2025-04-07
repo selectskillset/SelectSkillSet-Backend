@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import bcrypt from "bcrypt"
+import bcrypt from "bcrypt";
 import PasswordReset from "../model/PasswordReset.js";
 import { sendEmail } from "../helper/emailService.js";
 import { Candidate } from "../model/candidateModel.js";
@@ -10,6 +10,7 @@ import { passwordResetTemplate } from "../templates/passwordResetTemplate.js";
 import { passwordChangedTemplate } from "../templates/passwordChangedTemplate.js";
 
 const websiteUrl = process.env.WEBSITE_URL;
+const TOKEN_EXPIRY = 60 * 60 * 1000; 
 
 const UserModels = {
   Candidate,
@@ -21,7 +22,7 @@ const UserModels = {
 const findUserByEmail = async (email) => {
   const models = Object.entries(UserModels);
   for (const [modelName, model] of models) {
-    const user = await model.findOne({ email });
+    const user = await model.findOne({ email }).select("+password").lean();
     if (user) return { user, modelName };
   }
   return null;
@@ -41,16 +42,17 @@ export const forgotPassword = async (req, res) => {
 
     const { user, modelName } = result;
 
-    // Check existing reset attempts
+    // Rate limiting check
     const existingAttempts = await PasswordReset.countDocuments({
       email,
       userType: modelName,
+      createdAt: { $gt: Date.now() - TOKEN_EXPIRY },
     });
 
     if (existingAttempts >= 2) {
-      return res.status(400).json({
+      return res.status(429).json({
         success: false,
-        message: "Password reset limit exceeded (max 2 attempts)",
+        message: "Password reset limit exceeded. Please try again later.",
       });
     }
 
@@ -60,7 +62,7 @@ export const forgotPassword = async (req, res) => {
       email,
       userType: modelName,
       token,
-      attempts: existingAttempts + 1,
+      expiresAt: Date.now() + TOKEN_EXPIRY,
     });
 
     // Send email
@@ -77,15 +79,17 @@ export const forgotPassword = async (req, res) => {
       emailHtml
     );
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Reset link sent to registered email",
     });
   } catch (error) {
     console.error("Forgot Password Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: process.env.NODE_ENV === "development" 
+        ? error.message 
+        : "Internal server error",
     });
   }
 };
@@ -94,6 +98,14 @@ export const resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
     const { password } = req.body;
+
+    // Validate input
+    if (!password || password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
 
     // Find valid token
     const resetEntry = await PasswordReset.findOne({
@@ -119,11 +131,14 @@ export const resetPassword = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    user.password = hashedPassword;
-    await user.save();
+    // Update password
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await Model.updateOne(
+      { _id: user._id },
+      { $set: { password: hashedPassword } }
+    );
 
-    // Delete all reset entries for this user
+    // Cleanup reset entries
     await PasswordReset.deleteMany({
       email: resetEntry.email,
       userType: resetEntry.userType,
@@ -141,15 +156,17 @@ export const resetPassword = async (req, res) => {
       emailHtml
     );
 
-    res.json({
+    return res.status(200).json({
       success: true,
       message: "Password reset successful",
     });
   } catch (error) {
     console.error("Reset Password Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: process.env.NODE_ENV === "development"
+        ? error.message
+        : "Internal server error",
     });
   }
 };
