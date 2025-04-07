@@ -3,7 +3,6 @@ import {
   registerCandidate as registerCandidateService,
   loginCandidate as loginCandidateService,
   getProfile,
-  updateProfile,
   deleteProfile,
   importFromResume as importFromResumeService,
   importFromLinkedIn as importFromLinkedInService,

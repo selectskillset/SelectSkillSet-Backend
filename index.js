@@ -10,6 +10,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import corporateRoutes from "./routes/corporateRoutes.js";
 import slackRoutes from "./routes/slackRoutes.js";
 import { broadcastMessage, initializeWebSocket } from "./utils/websocket.js";
+import authRoutes from "./routes/authRoutes.js";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use("/interviewer", interviewerRoutes);
 app.use("/admin", adminRoutes);
 app.use("/corporate", corporateRoutes);
 app.use("/slack", slackRoutes);
+app.use('/auth', authRoutes);
 
 
 // Create HTTP server
