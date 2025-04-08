@@ -255,9 +255,28 @@ export const importFromLinkedIn = async (req, res) => {
 
 export const getInterviewers = async (req, res) => {
   try {
-    await getInterviewersService(res);
+    const result = await getInterviewersService();
+    
+    if (!result.success) {
+      return res.status(result.statusCode).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: result.data.length,
+      data: result.data
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Error in getInterviewers controller:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
   }
 };
 

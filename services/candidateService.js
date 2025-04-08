@@ -86,7 +86,7 @@ export const updateProfile = async (candidateId, data, res) => {
       "linkedIn",
       "skills",
       "resume",
-      "experiences"
+      "experiences",
     ];
 
     // Validate allowed fields
@@ -201,65 +201,80 @@ export const importFromLinkedIn = async (candidateId, linkedInData, res) => {
 
 export const getInterviewers = async (res) => {
   try {
-    // Fetch all interviewers with the required fields
-    const interviewers = await Interviewer.find().select(
-      "firstName lastName experience totalInterviews price profilePhoto jobTitle skills statistics bookedSlots isVerified"
-    );
+    const interviewers = await Interviewer.find()
+      .select(
+        "firstName lastName experience totalInterviews price profilePhoto jobTitle skills statistics.bookedSlots statistics.completedInterviews statistics.averageRating isVerified"
+      )
+      .lean();
 
-    // Filter interviewers based on complete information
+    if (!interviewers || interviewers.length === 0) {
+      return {
+        success: false,
+        statusCode: 404,
+        message: "No interviewers found in database",
+      };
+    }
+
     const filteredInterviewers = interviewers
-      .filter((interviewer) => {
-        return (
+      .filter(
+        (interviewer) =>
           interviewer.experience &&
           interviewer.price &&
           interviewer.jobTitle &&
-          interviewer.skills &&
-          interviewer.skills.length > 0 &&
-          interviewer.statistics &&
-          interviewer.statistics.completedInterviews >= 0 &&
-          interviewer.statistics.averageRating >= 0
-        );
-      })
-      .map((interviewer) => {
-        // Extract relevant statistics
-        const { completedInterviews, averageRating } =
-          interviewer.statistics || {};
+          interviewer.skills?.length > 0 &&
+          interviewer.statistics?.completedInterviews >= 0 &&
+          interviewer.statistics?.averageRating >= 0
+      )
+      .map(
+        ({
+          _id,
+          firstName,
+          lastName,
+          experience,
+          price,
+          profilePhoto,
+          jobTitle,
+          isVerified,
+          skills,
+          statistics,
+        }) => ({
+          _id,
+          firstName,
+          lastName,
+          experience,
+          price,
+          profilePhoto,
+          jobTitle,
+          isVerified,
+          skills,
+          completedInterviews: statistics?.completedInterviews || 0,
+          averageRating: statistics?.averageRating || 0,
+        })
+      );
 
-        // Return the interviewer with updated details, excluding slots
-        return {
-          _id: interviewer._id,
-          firstName: interviewer.firstName,
-          lastName: interviewer.lastName,
-          experience: interviewer.experience,
-          price: interviewer.price,
-          profilePhoto: interviewer.profilePhoto,
-          jobTitle: interviewer.jobTitle,
-          isVerified: interviewer.isVerified,
-          skills: interviewer.skills,
-          completedInterviews: completedInterviews || 0,
-          averageRating: averageRating || 0,
-        };
-      });
-
-    // If no interviewers are left after filtering, return a 404 response
     if (filteredInterviewers.length === 0) {
-      return res.status(404).json({
+      return {
         success: false,
-        message: "No interviewers found with available slots",
-      });
+        statusCode: 404,
+        message:
+          "No qualified interviewers found with complete profile information",
+      };
     }
 
-    // Return the filtered list of interviewers
-    return res.status(200).json({
+    return {
       success: true,
-      interviewers: filteredInterviewers,
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({
+      statusCode: 200,
+      data: filteredInterviewers,
+      message: "Interviewers retrieved successfully",
+    };
+  } catch (error) {
+    console.error("Error in getInterviewersService:", error);
+    return {
       success: false,
-      message: "An error occurred while fetching interviewers",
-    });
+      statusCode: 500,
+      message: "Failed to retrieve interviewers",
+      error: error.message,
+    };
   }
 };
 
@@ -363,7 +378,9 @@ export const getScheduledInterviewsService = async (candidateId) => {
     // Time parser (keep as is)
     const parseTime = (timeStr) => {
       if (!timeStr) return null;
-      const timeParts = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i);
+      const timeParts = timeStr.match(
+        /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?/i
+      );
       if (!timeParts) return null;
 
       let hours = parseInt(timeParts[1], 10);
@@ -395,21 +412,23 @@ export const getScheduledInterviewsService = async (candidateId) => {
 
           // Create UTC datetimes by applying IST offset (+5:30)
           const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-          const startUTC = Date.UTC(
-            utcDate.getUTCFullYear(),
-            utcDate.getUTCMonth(),
-            utcDate.getUTCDate(),
-            startTime.hours,
-            startTime.minutes
-          ) - istOffset;
+          const startUTC =
+            Date.UTC(
+              utcDate.getUTCFullYear(),
+              utcDate.getUTCMonth(),
+              utcDate.getUTCDate(),
+              startTime.hours,
+              startTime.minutes
+            ) - istOffset;
 
-          const endUTC = Date.UTC(
-            utcDate.getUTCFullYear(),
-            utcDate.getUTCMonth(),
-            utcDate.getUTCDate(),
-            endTime.hours,
-            endTime.minutes
-          ) - istOffset;
+          const endUTC =
+            Date.UTC(
+              utcDate.getUTCFullYear(),
+              utcDate.getUTCMonth(),
+              utcDate.getUTCDate(),
+              endTime.hours,
+              endTime.minutes
+            ) - istOffset;
 
           // Filter out past interviews
           if (endUTC <= currentUTC) return null;
@@ -417,7 +436,10 @@ export const getScheduledInterviewsService = async (candidateId) => {
           // Format display times (show exactly as stored)
           const formatDisplayTime = (timeStr) => {
             // Return original time string if valid
-            if (typeof timeStr === 'string' && timeStr.match(/\d{1,2}:\d{2}\s*(AM|PM)?/i)) {
+            if (
+              typeof timeStr === "string" &&
+              timeStr.match(/\d{1,2}:\d{2}\s*(AM|PM)?/i)
+            ) {
               return timeStr;
             }
             return "Time not specified";
@@ -441,7 +463,7 @@ export const getScheduledInterviewsService = async (candidateId) => {
             from: formatDisplayTime(interview.from),
             to: formatDisplayTime(interview.to),
             status: interview.status || "Scheduled",
-            utcTimestamp: startUTC
+            utcTimestamp: startUTC,
           };
         } catch (error) {
           console.error("Error processing interview:", error);
