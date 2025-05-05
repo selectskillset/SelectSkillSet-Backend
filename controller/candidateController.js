@@ -93,67 +93,53 @@ export const getCandidateProfile = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const updateCandidateProfile = async (req, res) => {
   try {
     const { id } = req.user;
-    const { resume, profilePhoto } = req.files;
+    const files = req.files || {};
     const updates = { ...req.body };
 
-    // Parse JSON fields first
+    // Parse JSON fields if they exist
     const jsonFields = ["skills", "experiences"];
-    for (const field of jsonFields) {
+    jsonFields.forEach(field => {
       if (updates[field]) {
         try {
           updates[field] = JSON.parse(updates[field]);
         } catch (error) {
           return res.status(400).json({
             success: false,
-            message: `Invalid ${field} format. Expected valid JSON array.`,
+            message: `Invalid ${field} format. Expected valid JSON.`,
           });
         }
       }
+    });
+
+    // Handle file uploads
+    if (files.profilePhoto?.[0]) {
+      updates.profilePhoto = await uploadToS3(files.profilePhoto[0], "profile-photos");
+    } else if (updates.profilePhoto === "") {
+      // Handle profile photo removal
+      updates.profilePhoto = null;
+    } else {
+      // Remove profilePhoto from updates if not being changed
+      delete updates.profilePhoto;
     }
 
-    // Process experiences and calculate total experience
-    let totalYears = 0,
-      totalMonths = 0;
-
-    if (updates.experiences && Array.isArray(updates.experiences)) {
-      updates.experiences = updates.experiences.map((exp) => {
-        if (!exp.startDate) return { ...exp, totalExperience: "0 yrs 0 mo" };
-
-        const { years, months, total } = calculateExperience(
-          exp.startDate,
-          exp.current ? null : exp.endDate
-        );
-
-        totalYears += years;
-        totalMonths += months;
-
-        return { ...exp, totalExperience: total };
-      });
+    if (files.resume?.[0]) {
+      updates.resume = await uploadToS3(files.resume[0], "resumes");
+    } else if (updates.resume === "") {
+      // Handle resume removal
+      updates.resume = null;
+    } else {
+      // Remove resume from updates if not being changed
+      delete updates.resume;
     }
-
-    // Adjust total experience
-    totalYears += Math.floor(totalMonths / 12);
-    totalMonths = totalMonths % 12;
-    updates.totalExperience = `${totalYears} yrs ${totalMonths} mo`;
-
-    // File uploads
-    const [resumeUrl, profilePhotoUrl] = await Promise.all([
-      resume?.[0] ? uploadToS3(resume[0], "resumes") : null,
-      profilePhoto?.[0] ? uploadToS3(profilePhoto[0], "profile-photos") : null,
-    ]);
-
-    if (resumeUrl) updates.resume = resumeUrl;
-    if (profilePhotoUrl) updates.profilePhoto = profilePhotoUrl;
 
     // Update profile
     const updatedProfile = await Candidate.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true, runValidators: true, context: "query" }
+      { new: true, runValidators: true }
     ).select("-password -isSuspended -statistics.feedbacks");
 
     if (!updatedProfile) {
@@ -167,6 +153,7 @@ export const updateCandidateProfile = async (req, res) => {
       success: true,
       data: updatedProfile,
     });
+
   } catch (error) {
     console.error("Profile update error:", error);
     const statusCode = error.name === "ValidationError" ? 400 : 500;
@@ -176,7 +163,6 @@ export const updateCandidateProfile = async (req, res) => {
     });
   }
 };
-
 export const getInterviewerProfile = async (req, res) => {
   const id = req.params.id;
   try {

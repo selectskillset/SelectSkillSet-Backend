@@ -30,14 +30,19 @@ export const uploadToS3 = async (file, folder) => {
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-    files: 1,
+    fileSize: 5 * 1024 * 1024 // 5MB
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only image files are allowed!"));
+    if (file.fieldname === 'profilePhoto') {
+      if (!file.mimetype.match(/^image\/(jpeg|jpg|png|webp)$/)) {
+        return cb(new Error('Only image files are allowed for profile photos'));
+      }
     }
-  },
+    if (file.fieldname === 'resume') {
+      if (!file.mimetype.match(/^application\/(pdf|msword|vnd.openxmlformats-officedocument.wordprocessingml.document)$/)) {
+        return cb(new Error('Only PDF or Word documents are allowed for resumes'));
+      }
+    }
+    cb(null, true);
+  }
 });
