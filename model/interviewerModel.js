@@ -17,6 +17,7 @@ const interviewerSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  
   phoneNumber: { type: String },
   countryCode: { type: String },
   jobTitle: { type: String },
