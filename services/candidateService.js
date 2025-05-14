@@ -203,7 +203,7 @@ export const getInterviewers = async (res) => {
   try {
     const interviewers = await Interviewer.find()
       .select(
-        "firstName lastName experience totalInterviews price profilePhoto jobTitle skills statistics.bookedSlots statistics.completedInterviews statistics.averageRating isVerified"
+        "firstName lastName experience availability location summary totalInterviews price profilePhoto jobTitle skills statistics.bookedSlots statistics.completedInterviews statistics.averageRating isVerified"
       )
       .lean();
 
@@ -231,6 +231,9 @@ export const getInterviewers = async (res) => {
           firstName,
           lastName,
           experience,
+          location,
+          availability,
+          summary,
           price,
           profilePhoto,
           jobTitle,
@@ -242,6 +245,9 @@ export const getInterviewers = async (res) => {
           firstName,
           lastName,
           experience,
+          availability,
+          location,
+          summary,
           price,
           profilePhoto,
           jobTitle,

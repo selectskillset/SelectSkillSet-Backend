@@ -101,7 +101,7 @@ export const updateCandidateProfile = async (req, res) => {
 
     // Parse JSON fields if they exist
     const jsonFields = ["skills", "experiences"];
-    jsonFields.forEach(field => {
+    jsonFields.forEach((field) => {
       if (updates[field]) {
         try {
           updates[field] = JSON.parse(updates[field]);
@@ -116,7 +116,10 @@ export const updateCandidateProfile = async (req, res) => {
 
     // Handle file uploads
     if (files.profilePhoto?.[0]) {
-      updates.profilePhoto = await uploadToS3(files.profilePhoto[0], "profile-photos");
+      updates.profilePhoto = await uploadToS3(
+        files.profilePhoto[0],
+        "profile-photos"
+      );
     } else if (updates.profilePhoto === "") {
       // Handle profile photo removal
       updates.profilePhoto = null;
@@ -153,7 +156,6 @@ export const updateCandidateProfile = async (req, res) => {
       success: true,
       data: updatedProfile,
     });
-
   } catch (error) {
     console.error("Profile update error:", error);
     const statusCode = error.name === "ValidationError" ? 400 : 500;
@@ -168,7 +170,7 @@ export const getInterviewerProfile = async (req, res) => {
   try {
     // Fetch interviewer data
     const interviewer = await Interviewer.findById(id).select(
-      "firstName lastName email location jobTitle profilePhoto experience totalInterviews price skills bookedSlots availability statistics.averageRating statistics.totalFeedbackCount"
+      "firstName lastName email summary  location jobTitle profilePhoto experience totalInterviews price skills bookedSlots availability statistics.averageRating statistics.totalFeedbackCount"
     );
 
     if (!interviewer) {
@@ -195,6 +197,7 @@ export const getInterviewerProfile = async (req, res) => {
       firstName: interviewer.firstName,
       lastName: interviewer.lastName,
       email: interviewer.email,
+      summary: interviewer.summary,
       location: interviewer.location || "N/A",
       jobTitle: interviewer.jobTitle || "N/A",
       profilePhoto:
@@ -242,26 +245,25 @@ export const importFromLinkedIn = async (req, res) => {
 export const getInterviewers = async (req, res) => {
   try {
     const result = await getInterviewersService();
-    
+
     if (!result.success) {
       return res.status(result.statusCode).json({
         success: false,
-        message: result.message
+        message: result.message,
       });
     }
 
     res.status(200).json({
       success: true,
       count: result.data.length,
-      data: result.data
+      data: result.data,
     });
-
   } catch (error) {
-    console.error('Error in getInterviewers controller:', error);
+    console.error("Error in getInterviewers controller:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: error.message
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };

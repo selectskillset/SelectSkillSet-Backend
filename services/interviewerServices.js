@@ -133,6 +133,7 @@ export const updateInterviewerProfileServices = async (
       "lastName",
       "jobTitle",
       "location",
+      "summary",
       "phoneNumber",
       "countryCode",
       "experience",
