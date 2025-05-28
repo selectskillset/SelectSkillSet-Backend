@@ -141,7 +141,7 @@ export const getCandidatesByRatingService = async () => {
   return await Candidate.find()
     .sort({ "statistics.averageRating": -1 })
     .select(
-      "firstName lastName email countryCode phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
+      "firstName lastName email countryCode jobTitle phoneNumber location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
     );
 };
 export const getOneCandidateService = async (id, corporateId) => {

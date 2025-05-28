@@ -22,6 +22,7 @@ import { sendOtp, verifyOtp } from "../helper/otpService.js";
 import { isSlotExpired } from "../utils/slotUtils.js";
 import { rescheduleRequestTemplate } from "../templates/rescheduleRequestTemplate.js";
 import mongoose from "mongoose";
+import { decrypt, encrypt } from "../helper/bankDetailsEncryption.js";
 
 dotenv.config();
 
@@ -1068,59 +1069,93 @@ export const getBankDetailsController = async (req, res) => {
       branch: "",
     };
 
+    // Decrypt the bank details before sending to client
+    const decryptedDetails = interviewer.bankDetails
+      ? {
+          bankName: decrypt(interviewer.bankDetails.bankName),
+          accountHolderName: decrypt(interviewer.bankDetails.accountHolderName),
+          accountNumber: decrypt(interviewer.bankDetails.accountNumber),
+          ifscCode: decrypt(interviewer.bankDetails.ifscCode),
+          branch: decrypt(interviewer.bankDetails.branch),
+        }
+      : defaultDetails;
+
     return res.status(200).json({
       success: true,
-      details: interviewer.bankDetails || defaultDetails,
+      details: decryptedDetails,
+      securityMessage:
+        "All bank details are encrypted with 256-bit SSL and stored securely. We never share your financial information with third parties.",
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Bank details decryption error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while retrieving bank details",
+    });
   }
 };
 
 export const updateBankDetailsController = async (req, res) => {
   try {
-    const { bankName, accountHolderName, accountNumber, ifscCode, branch } =
-      req.body;
+    const { bankName, accountHolderName, accountNumber, ifscCode, branch } = req.body;
 
-    const isValidIFSC = (ifsc) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc);
-    const isValidAccountNumber = (accNum) => /^\d{9,18}$/.test(accNum);
-
-    if (
-      !bankName ||
-      !accountHolderName ||
-      !accountNumber ||
-      !ifscCode ||
-      !branch
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All fields are required" });
+    // Validate input
+    if (!bankName || !accountHolderName || !accountNumber || !ifscCode || !branch) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required"
+      });
     }
 
     // Advanced validation
-    if (!isValidIFSC(ifscCode)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid IFSC format" });
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.toUpperCase())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid IFSC format. Example: ABCD0123456"
+      });
     }
 
-    if (!isValidAccountNumber(accountNumber)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid account number" });
+    if (!/^\d{9,18}$/.test(accountNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Account number must be 9-18 digits"
+      });
     }
+
+    // Encrypt all sensitive data
+    const encryptedDetails = {
+      bankName: encrypt(bankName),
+      accountHolderName: encrypt(accountHolderName),
+      accountNumber: encrypt(accountNumber),
+      ifscCode: encrypt(ifscCode.toUpperCase()),
+      branch: encrypt(branch)
+    };
 
     const updatedInterviewer = await Interviewer.findByIdAndUpdate(
       req.user.id,
-      { bankDetails: req.body },
+      { bankDetails: encryptedDetails },
       { new: true, runValidators: true }
-    ).select("bankDetails");
+    ).select('bankDetails');
 
+    // Return partially masked data
     return res.status(200).json({
       success: true,
-      details: updatedInterviewer.bankDetails,
+      details: {
+        bankName,
+        accountHolderName,
+        accountNumber: accountNumber.replace(/.(?=.{4})/g, '*'), // Mask all but last 4 digits
+        ifscCode,
+        branch
+      },
+      securityMessage: "Data encrypted with AES-256 and stored securely"
     });
+
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error('Bank details update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update bank details",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
