@@ -210,10 +210,122 @@ export const getOneCandidateService = async (id, corporateId) => {
   }
 };
 
-export const filterCandidatesByJDService = async (skillsRequired) => {
-  return await Candidate.find({
-    skills: { $in: skillsRequired },
-  }).select(
-    "firstName lastName email phoneNumber countryCode location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
-  );
+export const filterCandidatesByJDService = async (title, description, skillsRequired, matchStrength) => {
+  try {
+    // Extract keywords from job description
+    const descriptionKeywords = extractKeywords(description);
+    
+    // Combine all search terms
+    const allSearchTerms = [
+      ...(title ? [title.toLowerCase()] : []),
+      ...skillsRequired.map(skill => skill.toLowerCase()),
+      ...descriptionKeywords
+    ];
+    
+    // Create a unique set of search terms
+    const searchTerms = [...new Set(allSearchTerms)];
+    
+    if (searchTerms.length === 0) {
+      return [];
+    }
+    
+    // Build the query based on match strength
+    let query = {};
+    
+    if (matchStrength === "high") {
+      // High match: Must match all criteria
+      query = {
+        $and: [
+          ...(title ? [{
+            jobTitle: { $regex: title, $options: 'i' }
+          }] : []),
+          ...(skillsRequired.length > 0 ? [{
+            skills: { $all: skillsRequired.map(skill => new RegExp(skill, 'i')) }
+          }] : []),
+          ...(descriptionKeywords.length > 0 ? [{
+            $or: [
+              { jobTitle: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } },
+              { skills: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } }
+            ]
+          }] : [])
+        ].filter(Boolean)
+      };
+    } else if (matchStrength === "medium") {
+      // Medium match: Must match at least 2 criteria
+      const conditions = [
+        ...(title ? [{ jobTitle: { $regex: title, $options: 'i' } }] : []),
+        ...(skillsRequired.length > 0 ? [{ 
+          skills: { $in: skillsRequired.map(skill => new RegExp(skill, 'i')) } 
+        }] : []),
+        ...(descriptionKeywords.length > 0 ? [{
+          $or: [
+            { jobTitle: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } },
+            { skills: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } }
+          ]
+        }] : [])
+      ].filter(Boolean);
+      
+      query = {
+        $and: [
+          { $or: conditions },
+          { 
+            $expr: { 
+              $gte: [
+                { $size: { $setIntersection: [ 
+                  ["$jobTitle", ...(skillsRequired || [])], 
+                  searchTerms 
+                ] } },
+                2
+              ] 
+            } 
+          }
+        ]
+      };
+    } else {
+      // Low match: Match any criteria
+      query = {
+        $or: [
+          ...(title ? [{ jobTitle: { $regex: title, $options: 'i' } }] : []),
+          ...(skillsRequired.length > 0 ? [{ 
+            skills: { $in: skillsRequired.map(skill => new RegExp(skill, 'i')) } 
+          }] : []),
+          ...(descriptionKeywords.length > 0 ? [{
+            $or: [
+              { jobTitle: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } },
+              { skills: { $in: descriptionKeywords.map(keyword => new RegExp(keyword, 'i')) } }
+            ]
+          }] : [])
+        ].filter(Boolean)
+      };
+    }
+    
+    return await Candidate.find(query).select(
+      "firstName lastName email phoneNumber jobTitle location profilePhoto linkedIn skills statistics.averageRating statistics.feedbacks resume"
+    ).limit(50);
+  } catch (error) {
+    throw new Error(`Filtering error: ${error.message}`);
+  }
+};
+
+const extractKeywords = (text) => {
+  if (!text) return [];
+  
+  // Common words to exclude
+  const stopWords = new Set([
+    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be', 'been', 
+    'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'as', 'it', 'that', 
+    'this', 'these', 'those', 'then', 'than', 'when', 'where', 'how', 'what', 'which', 
+    'who', 'whom', 'why', 'will', 'would', 'can', 'could', 'shall', 'should', 'may', 
+    'might', 'must', 'here', 'there', 'from', 'out', 'over', 'under', 'up', 'down'
+  ]);
+  
+  // Extract words and filter out stop words
+  const words = text
+    .toLowerCase()
+    .replace(/[^\w\s]/g, '')
+    .split(/\s+/)
+    .filter(word => word.length > 2 && !stopWords.has(word));
+  
+  // Return unique words
+  return [...new Set(words)];
 };

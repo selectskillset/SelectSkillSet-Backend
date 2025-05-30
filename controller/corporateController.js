@@ -171,14 +171,25 @@ export const getOneCandidateController = async (req, res) => {
 
 export const filterCandidatesByJDController = async (req, res) => {
   try {
-    const skillsRequired = Array.isArray(req.body.skillsRequired)
-      ? req.body.skillsRequired
-      : JSON.parse(req.body.skillsRequired);
-
-    const candidates = await filterCandidatesByJDService(skillsRequired);
+    const { title, description, skillsRequired, matchStrength } = req.body;
+    
+    const skills = Array.isArray(skillsRequired) 
+      ? skillsRequired 
+      : skillsRequired ? [skillsRequired] : [];
+    
+    const candidates = await filterCandidatesByJDService(
+      title, 
+      description, 
+      skills, 
+      matchStrength || "high"
+    );
+    
     res.status(200).json({ candidates });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ 
+      message: "Server error", 
+      error: error.message 
+    });
   }
 };
 
