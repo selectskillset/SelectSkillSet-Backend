@@ -7,60 +7,35 @@ export const deleteAccountTemplate = (name, userType) => `
     <title>Account Deletion Notice</title>
     <style>
         :root {
-            --primary-color: #0073b1;
+            --primary-color: #4338CA;
+            --secondary-color: #7C3AED;
             --danger-color: #d9534f;
-            --text-light: #333;
-            --text-dark: #f4f4f4;
-            --bg-light: #ffffff;
-            --bg-dark: #1c1c1c;
-            --card-light: #f8f9fa;
-            --card-dark: #2a2a2a;
         }
 
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: var(--bg-dark);
-                color: var(--text-dark);
-            }
-            .container {
-                background: var(--card-dark);
-                box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.1);
-            }
-            .content p, .content li, .footer {
-                color: var(--text-dark);
-            }
-            .footer {
-                background: #242424;
-            }
-        }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--bg-light);
-            font-family: 'Arial', sans-serif;
-            color: var(--text-light);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         .container {
             max-width: 600px;
             margin: 40px auto;
-            background: var(--bg-light);
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
         }
 
         .header {
-            background-color: var(--primary-color);
             padding: 20px;
             text-align: center;
             color: white;
         }
 
-        .header h2 {
-            margin: 0;
-            font-size: 22px;
+        .header img {
+            width: 150px;
+            height: auto;
         }
 
         .content {
@@ -88,11 +63,10 @@ export const deleteAccountTemplate = (name, userType) => `
         }
 
         .footer {
-            background: var(--card-light);
             text-align: center;
             padding: 16px;
             font-size: 14px;
-            color: #6c757d;
+            color: #718096;
         }
 
         .footer p {
@@ -107,7 +81,7 @@ export const deleteAccountTemplate = (name, userType) => `
             display: inline-block;
             margin-top: 20px;
             padding: 10px 20px;
-            background-color: var(--primary-color);
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
             color: white;
             text-decoration: none;
             border-radius: 5px;
@@ -116,19 +90,19 @@ export const deleteAccountTemplate = (name, userType) => `
         }
 
         .button:hover {
-            background-color: #005f99;
+            background: linear-gradient(90deg, var(--secondary-color), var(--primary-color));
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Account Deletion Notice</h2>
+            <img src="https://www.selectskillset.com/assets/selectskillset_logo__2_-removebg-preview-ssolSFsy.png" alt="SELECTSKILLSET Logo">
         </div>
         <div class="content">
             <p>Dear <strong>${name}</strong>,</p>
             <p>We regret to inform you that your <strong>${userType}</strong> account on <strong>SELECTSKILLSET</strong> has been permanently deleted.</p>
-            
+
             <p class="highlight">What this means for you:</p>
             <ul>
                 <li>Your account and all associated data have been removed from our platform.</li>
@@ -144,7 +118,7 @@ export const deleteAccountTemplate = (name, userType) => `
             <p><strong>SELECTSKILLSET Team</strong></p>
             <p class="contact">
                 Need help? Contact support: <a href="mailto:support@selectskillset.com">support@selectskillset.com</a><br/>
-                &copy; ${new Date().getFullYear()} SELECTSKILLSET. All rights reserved.
+                &copy; SELECTSKILLSET. All rights reserved.
             </p>
         </div>
     </div>

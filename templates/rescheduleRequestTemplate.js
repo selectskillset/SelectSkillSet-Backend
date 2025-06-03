@@ -4,94 +4,92 @@ export const rescheduleRequestTemplate = (type, data) => `
 <head>
   <meta charset="utf-8">
   <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 0;
+      color: #4a5568;
+    }
     .email-wrapper {
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       max-width: 680px;
       margin: 2rem auto;
       background: #ffffff;
       border-radius: 8px;
       overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     }
-    
     .email-header {
-      background: #0A66C2;
       padding: 2rem;
       text-align: center;
       color: #ffffff;
     }
-    
+    .email-header img {
+      width: 150px;
+      height: auto;
+    }
     .email-content {
       padding: 2.5rem;
-      color: #1D2226;
+      color: #4a5568;
     }
-    
+    .email-content h2 {
+      color: #4338CA;
+      font-size: 24px;
+    }
     .details-card {
-      background: #F8F9FA;
+      background: #f8f9fa;
       border-radius: 8px;
       padding: 1.5rem;
       margin: 2rem 0;
     }
-    
     .detail-item {
       display: flex;
       justify-content: space-between;
       margin-bottom: 1.2rem;
     }
-    
     .detail-label {
-      color: #666F79;
-      font-size: 0.9rem;
-      font-weight: 500;
+      color: #718096;
+      font-size: 16px;
     }
-    
     .detail-value {
-      color: #1D2226;
+      color: #4a5568;
       font-weight: 600;
     }
-    
     .action-buttons {
       display: flex;
       gap: 1rem;
       justify-content: center;
       margin: 2.5rem 0;
     }
-    
     .btn-primary {
-      background: #0A66C2;
-      color: #FFFFFF !important;
+      background: linear-gradient(90deg, #4338CA, #7C3AED);
+      color: #ffffff !important;
       padding: 0.8rem 2rem;
       border-radius: 24px;
       text-decoration: none;
       font-weight: 600;
-      transition: opacity 0.2s;
     }
-    
     .btn-secondary {
-      background: #FFFFFF;
-      color: #0A66C2;
-      border: 1px solid #0A66C2;
+      background: #ffffff;
+      color: #4338CA;
+      border: 1px solid #4338CA;
       padding: 0.8rem 2rem;
       border-radius: 24px;
       text-decoration: none;
       font-weight: 600;
-      transition: background 0.2s;
     }
-    
     .email-footer {
-      background: #F3F6F8;
+      background: #f8fafc;
       padding: 1.5rem;
       text-align: center;
-      color: #666F79;
-      font-size: 0.9rem;
+      color: #718096;
+      font-size: 14px;
     }
-    
     .legal-links {
       margin-top: 1rem;
     }
-    
     .legal-links a {
-      color: #0A66C2;
+      color: #4338CA;
       text-decoration: none;
       margin: 0 0.5rem;
     }
@@ -100,9 +98,8 @@ export const rescheduleRequestTemplate = (type, data) => `
 <body>
   <div class="email-wrapper">
     <div class="email-header">
-      <h1>SELECTSKILLSET</h1>
+      <img src="https://www.selectskillset.com/assets/selectskillset_logo__2_-removebg-preview-ssolSFsy.png" alt="SELECTSKILLSET Logo">
     </div>
-
     <div class="email-content">
       <h2>Interview Reschedule Request</h2>
       <p>Hello ${
@@ -132,43 +129,35 @@ export const rescheduleRequestTemplate = (type, data) => `
         </div>
       </div>
 
-     <div class="action-buttons">
-  ${
-    type === "candidate"
-      ? `
-    <a href="${data.url}/candidate/approve-reschedule?requestId=${data.interviewId}&candidateId=${data.candidateId}" 
-       class="btn-primary">
-       Approve Request
-    </a>
-    <a href="${data.url}/candidate/reject-reschedule?requestId=${data.interviewId}&candidateId=${data.candidateId}" 
-       class="btn-secondary">
-       Reject Request
-    </a>`
-      : `
-    <a href="${data.url}/interviewer/approve-reschedule?requestId=${data.interviewId}&interviewerId=${data.interviewerId}" 
-       class="btn-primary">
-       Approve Request
-    </a>
-    <a href="${data.url}/interviewer/reject-reschedule?requestId=${data.interviewId}&interviewerId=${data.interviewerId}" 
-       class="btn-secondary">
-       Reject Request
-    </a>`
-  }
-</div>
+      <div class="action-buttons">
+        ${
+          type === "candidate"
+            ? `
+            <a href="${data.url}/candidate/approve-reschedule?requestId=${data.interviewId}&candidateId=${data.candidateId}" class="btn-primary">
+              Approve Request
+            </a>
+            <a href="${data.url}/candidate/reject-reschedule?requestId=${data.interviewId}&candidateId=${data.candidateId}" class="btn-secondary">
+              Reject Request
+            </a>`
+            : `
+            <a href="${data.url}/interviewer/approve-reschedule?requestId=${data.interviewId}&interviewerId=${data.interviewerId}" class="btn-primary">
+              Approve Request
+            </a>
+            <a href="${data.url}/interviewer/reject-reschedule?requestId=${data.interviewId}&interviewerId=${data.interviewerId}" class="btn-secondary">
+              Reject Request
+            </a>`
+        }
+      </div>
 
-      <p style="text-align: center; color: #666F79;">
+      <p style="text-align: center; color: #718096;">
         Please respond by ${data.newDate}<br>
         <small>Request ID: ${data.interviewId}</small>
       </p>
     </div>
 
     <div class="email-footer">
-      <p>© ${new Date().getFullYear()} SELECTSKILLSET</p>
-      <div class="legal-links">
-        <a href="#">Privacy Policy</a>
-        <a href="#">Terms of Service</a>
-        <a href="#">Contact Us</a>
-      </div>
+      <p>©  SELECTSKILLSET</p>
+      
     </div>
   </div>
 </body>

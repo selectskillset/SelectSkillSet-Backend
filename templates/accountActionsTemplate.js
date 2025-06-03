@@ -7,25 +7,31 @@ export const suspendAccountTemplate = (name, reason) => `
   <title>Account Suspension Notice</title>
   <style>
     :root {
-      --primary-color: #d9534f;
+      --primary-color: #4338CA;
+      --secondary-color: #7C3AED;
       --bg-light: #ffffff;
-      --bg-dark: #1e1e1e;
+      --bg-dark: #121212;
       --text-light: #333333;
       --text-dark: #f5f5f5;
-      --border-light: #d9534f;
-      --border-dark: #f8d7da;
+      --border-light: #4338CA;
+      --border-dark: #7C3AED;
+      --gradient: linear-gradient(90deg, #4338CA, #7C3AED);
     }
+
     @media (prefers-color-scheme: dark) {
       body { background-color: var(--bg-dark); color: var(--text-dark); }
-      .container { background: #292929; color: var(--text-dark); }
-      .reason { background-color: #442222; border-left: 5px solid var(--border-dark); }
-      .footer { background: #1e1e1e; color: #aaaaaa; }
+      .container { background: #1e1e1e; color: var(--text-dark); }
+      .reason { background-color: #292929; border-left: 5px solid var(--border-dark); }
+      .footer { background: white; color: #aaaaaa; }
     }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: var(--bg-light);
+      margin: 0;
       padding: 20px;
     }
+
     .container {
       max-width: 600px;
       margin: 0 auto;
@@ -33,50 +39,71 @@ export const suspendAccountTemplate = (name, reason) => `
       border-radius: 8px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       padding: 30px;
+      color: var(--text-light);
     }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo img {
+      max-width: 150px;
+      height: auto;
+    }
+
     h1 {
       color: var(--primary-color);
       font-size: 24px;
       margin-bottom: 20px;
       text-align: center;
     }
+
     p {
       font-size: 16px;
       line-height: 1.6;
-      color: var(--text-light);
       margin-bottom: 20px;
     }
+
     .reason {
       margin-top: 20px;
       padding: 15px;
-      background-color: #f8d7da;
+      background-color: #f0f0ff;
       border-left: 5px solid var(--border-light);
-      color: #721c24;
+      color: var(--primary-color);
       font-size: 15px;
       border-radius: 4px;
     }
+
     .footer {
       margin-top: 30px;
       font-size: 14px;
       color: #666666;
       text-align: center;
     }
+
     .button {
       display: inline-block;
       margin-top: 20px;
       padding: 10px 20px;
-      background-color: #0073b1;
+      background: var(--gradient);
       color: #ffffff;
       text-decoration: none;
       border-radius: 5px;
       font-size: 16px;
       transition: background-color 0.3s ease;
     }
-    .button:hover { background-color: #005f99; }
+
+    .button:hover {
+      background: linear-gradient(90deg, #7C3AED, #4338CA);
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="logo">
+      <img src="https://www.selectskillset.com/assets/selectskillset_logo__2_-removebg-preview-ssolSFsy.png" alt="SELECTSKILLSET Logo">
+    </div>
     <h1>Account Suspension Notice</h1>
     <p>Dear ${name},</p>
     <p>We regret to inform you that your account has been temporarily suspended due to the following reason:</p>
@@ -88,11 +115,12 @@ export const suspendAccountTemplate = (name, reason) => `
     <div class="footer">
       Best regards,<br>
       <strong>SELECTSKILLSET Team</strong><br>
-      &copy; ${new Date().getFullYear()} SELECTSKILLSET. All rights reserved.
+      &copy;SELECTSKILLSET. All rights reserved.
     </div>
   </div>
 </body>
 </html>
+
 `;
 
 export const activateAccountTemplate = (name) => `
@@ -104,25 +132,31 @@ export const activateAccountTemplate = (name) => `
   <title>Account Activation Successful</title>
   <style>
     :root {
-      --primary-color: #28a745;
+      --primary-color: #4338CA;
+      --secondary-color: #7C3AED;
       --bg-light: #ffffff;
-      --bg-dark: #1e1e1e;
+      --bg-dark: #121212;
       --text-light: #333333;
       --text-dark: #f5f5f5;
-      --border-light: #28a745;
-      --border-dark: #e9f7ef;
+      --border-light: #4338CA;
+      --border-dark: #7C3AED;
+      --gradient: linear-gradient(90deg, #4338CA, #7C3AED);
     }
+
     @media (prefers-color-scheme: dark) {
       body { background-color: var(--bg-dark); color: var(--text-dark); }
-      .container { background: #292929; color: var(--text-dark); }
-      .message { background-color: #224422; border-left: 5px solid var(--border-dark); }
-      .footer { background: #1e1e1e; color: #aaaaaa; }
+      .container { background: #1e1e1e; color: var(--text-dark); }
+      .message { background-color: #292929; border-left: 5px solid var(--border-dark); }
+      .footer { background: white; color: #aaaaaa; }
     }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background-color: var(--bg-light);
+      margin: 0;
       padding: 20px;
     }
+
     .container {
       max-width: 600px;
       margin: 0 auto;
@@ -130,50 +164,80 @@ export const activateAccountTemplate = (name) => `
       border-radius: 8px;
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
       padding: 30px;
+      color: var(--text-light);
     }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .logo img {
+      max-width: 150px;
+      height: auto;
+    }
+
     h1 {
       color: var(--primary-color);
       font-size: 24px;
       margin-bottom: 20px;
       text-align: center;
     }
+
     p {
       font-size: 16px;
       line-height: 1.6;
-      color: var(--text-light);
       margin-bottom: 20px;
     }
+
     .message {
       margin-top: 20px;
       padding: 15px;
-      background-color: #e9f7ef;
+      background-color: #f0f0ff;
       border-left: 5px solid var(--border-light);
-      color: #155724;
+      color: var(--primary-color);
       font-size: 15px;
       border-radius: 4px;
     }
+
+    .message ul {
+      margin: 10px 0;
+      padding-left: 20px;
+    }
+
+    .message li {
+      margin-bottom: 5px;
+    }
+
     .footer {
       margin-top: 30px;
       font-size: 14px;
       color: #666666;
       text-align: center;
     }
+
     .button {
       display: inline-block;
       margin-top: 20px;
       padding: 10px 20px;
-      background-color: #0073b1;
+      background: var(--gradient);
       color: #ffffff;
       text-decoration: none;
       border-radius: 5px;
       font-size: 16px;
       transition: background-color 0.3s ease;
     }
-    .button:hover { background-color: #005f99; }
+
+    .button:hover {
+      background: linear-gradient(90deg, #7C3AED, #4338CA);
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="logo">
+      <img src="https://www.selectskillset.com/assets/selectskillset_logo__2_-removebg-preview-ssolSFsy.png" alt="SELECTSKILLSET Logo">
+    </div>
     <h1>Welcome Back, ${name}!</h1>
     <p>Your account has been successfully activated. You can now log in and explore our platform.</p>
     <div class="message">
@@ -185,13 +249,14 @@ export const activateAccountTemplate = (name) => `
       </ul>
     </div>
     <p>We’re glad to have you on board! If you need any assistance, feel free to contact our support team.</p>
-    <a href="https://select-skill-set-frontend-testing.vercel.app/" class="button">Log In Now</a>
+    <a href="https://selectskillset.com/" class="button">Log In Now</a>
     <div class="footer">
       Best regards,<br>
       <strong>SELECTSKILLSET Team</strong><br>
-      &copy; ${new Date().getFullYear()} SELECTSKILLSET. All rights reserved.
+      &copy; SELECTSKILLSET. All rights reserved.
     </div>
   </div>
 </body>
 </html>
+
 `;
