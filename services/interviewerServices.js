@@ -130,6 +130,7 @@ export const updateInterviewerProfileServices = async (
   try {
     const allowedUpdates = [
       "firstName",
+      "profilePhoto",
       "lastName",
       "jobTitle",
       "location",

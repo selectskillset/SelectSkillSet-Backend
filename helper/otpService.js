@@ -63,7 +63,7 @@ export const verifyOtp = (email, otp) => {
   
     const { otp: storedOtp, createdAt } = storedData;
     const currentTime = Date.now();
-    const otpExpiryTime = 5 * 60 * 10000;
+    const otpExpiryTime = 5 * 60 * 10000; 
   
     if (currentTime - createdAt > otpExpiryTime) {
       console.log(`OTP expired for ${normalizedEmail}`);
