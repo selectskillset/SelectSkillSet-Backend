@@ -1,13 +1,11 @@
-// Parse time slot (e.g., "1:00 AM - 2:00 AM")
 export const parseTimeSlot = (timeString) => {
   try {
-    const endTime = timeString.split(" - ").pop().trim(); // Extract end time
+    const endTime = timeString.split(" - ").pop().trim(); 
     const [time, period] = endTime.split(" ");
     const [hoursStr, minutesStr] = time.split(":");
     let hours = parseInt(hoursStr, 10);
     const minutes = parseInt(minutesStr || "0", 10);
 
-    // Convert to 24-hour format
     if (period === "PM" && hours !== 12) hours += 12;
     if (period === "AM" && hours === 12) hours = 0;
 
@@ -18,7 +16,6 @@ export const parseTimeSlot = (timeString) => {
   }
 };
 
-// Format date as DD/MM/YYYY
 export const formatDate = (date, timezoneOffset) => {
   const localDate = new Date(date.getTime() + timezoneOffset * 60 * 60 * 1000);
   return localDate.toLocaleDateString(undefined, {

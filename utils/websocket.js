@@ -1,24 +1,23 @@
-// utils/websocket.js
-import { WebSocketServer } from "ws";
+import { WebSocketServer } from 'ws'
 
-export const initializeWebSocket = (server) => {
-  const wss = new WebSocketServer({ server });
+export const initializeWebSocket = server => {
+  const wss = new WebSocketServer({ server })
 
-  wss.on("connection", (ws) => {
-    console.log("Client connected via WebSocket");
+  wss.on('connection', ws => {
+    console.log('Client connected via WebSocket')
 
-    ws.on("close", () => {
-      console.log("Client disconnected");
-    });
-  });
+    ws.on('close', () => {
+      console.log('Client disconnected')
+    })
+  })
 
-  return wss;
-};
+  return wss
+}
 
 export const broadcastMessage = (wss, message) => {
-  wss.clients.forEach((client) => {
+  wss.clients.forEach(client => {
     if (client.readyState === WebSocketServer.OPEN) {
-      client.send(JSON.stringify(message));
+      client.send(JSON.stringify(message))
     }
-  });
-};
+  })
+}

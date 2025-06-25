@@ -4,7 +4,7 @@ const generateToken = (candidate) => {
   return jwt.sign(
     { id: candidate._id, email: candidate.email },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "1d" }
   );
 };
 

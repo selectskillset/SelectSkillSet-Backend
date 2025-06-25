@@ -271,7 +271,6 @@ export const deleteOneCorporateController = async (req, res) => {
       return res.status(404).json({ message: "Corporate not found" });
     }
 
-    // Send deletion email
     const emailSubject = "Your Corporate Account Has Been Deleted";
     const emailBody = deleteAccountTemplate(corporate.companyName, "corporate");
     await sendEmail(corporate.contactEmail, emailSubject, "", emailBody);

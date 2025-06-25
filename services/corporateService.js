@@ -86,7 +86,6 @@ export const createCorporateService = async (data) => {
     gdprConsent,
   });
 
-  // Save the corporate to the database
   await corporate.save();
   return corporate;
 };
@@ -95,7 +94,6 @@ export const updateCorporateService = async (id, data) => {
   try {
     const updateData = { ...data };
 
-    // If profilePhoto is provided, ensure it's a string (URL)
     if (
       updateData.profilePhoto &&
       typeof updateData.profilePhoto !== "string"
@@ -107,7 +105,7 @@ export const updateCorporateService = async (id, data) => {
       id,
       { $set: updateData },
       { new: true, runValidators: true }
-    ).select("-password -__v"); // Exclude sensitive fields
+    ).select("-password -__v"); 
 
     if (!updatedCorporate) {
       throw new Error("Corporate not found");
