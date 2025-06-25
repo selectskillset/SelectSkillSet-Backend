@@ -3,6 +3,7 @@ import generateToken from "../middleware/generateToken.js";
 import { Corporate } from "../model/corporateModel.js";
 import { Candidate } from "../model/candidateModel.js";
 
+
 export const corporateLoginService = async (email, password) => {
   const corporate = await Corporate.findOne({ email });
 
