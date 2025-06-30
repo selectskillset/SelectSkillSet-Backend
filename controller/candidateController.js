@@ -41,7 +41,7 @@ export const registerCandidate = async (req, res) => {
       message: 'OTP sent to your email. Please verify to complete registration.'
     })
   } catch (error) {
-    console.error('Error during candidate registration:', error)
+    console.error('Error during candidate registration:', error.message)
     return res.status(500).json({
       success: false,
       message: 'An error occurred while processing your request.'

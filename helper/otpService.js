@@ -15,11 +15,13 @@ export const generateOtp = () => {
 // Send OTP via email
 export const sendOtpEmail = async (email, otp) => {
   const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+   host: 'smtp.hostinger.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS
+  }
   });
 
   const mailOptions = {
