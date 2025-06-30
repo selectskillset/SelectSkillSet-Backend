@@ -31,13 +31,10 @@ app.use('/auth', authRoutes);
 app.use('/demo', requestDemoRoutes);
 
 
-// Create HTTP server
 const server = http.createServer(app);
 
-// Initialize WebSocket server
 const wss = initializeWebSocket(server);
 
-// Export broadcastMessage for use in controllers
 global.broadcastMessage = (message) => broadcastMessage(wss, message);
 
 
