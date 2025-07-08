@@ -477,8 +477,8 @@ export const getProfileCompletion = async (req, res) => {
 
 export const approveRescheduleRequest = async (req, res) => {
   try {
-    const { interviewRequestId, candidateId } = req.body
-    const url = process.env.WEBSITE_URL
+    const { interviewRequestId, candidateId } = req.body;
+    const baseUrl = process.env.MEETING_URL;
 
     // Update status to Scheduled
     const updateOperations = await Promise.all([
@@ -503,63 +503,51 @@ export const approveRescheduleRequest = async (req, res) => {
           }
         }
       )
-    ])
+    ]);
 
     if (updateOperations.some(op => op.modifiedCount === 0)) {
       return res.status(404).json({
         success: false,
         message: 'Request not found or already approved'
-      })
+      });
     }
 
     // Fetch updated data
     const [interviewer, candidate] = await Promise.all([
       Interviewer.findOne(
         { 'interviewRequests._id': interviewRequestId },
-        { email: 1, firstName: 1, 'interviewRequests.$': 1 }
-      ).populate('interviewRequests.candidateId', 'email firstName'),
+        { email: 1, firstName: 1, lastName: 1, 'interviewRequests.$': 1 }
+      ).populate('interviewRequests.candidateId', 'email firstName lastName'),
       Candidate.findOne(
         { 'scheduledInterviews._id': interviewRequestId },
-        { email: 1, firstName: 1 }
+        { email: 1, firstName: 1, lastName: 1 }
       )
-    ])
+    ]);
 
-    const interviewRequest = interviewer.interviewRequests[0]
+    const interviewRequest = interviewer.interviewRequests[0];
 
-    // Generate meet link if not exists
-    let meetLink = interviewRequest.meetLink
-    if (!meetLink) {
-      const googleMeetLinks = [
-        'https://meet.google.com/xbn-baxk-deo',
-        'https://meet.google.com/ydn-cbxl-fpo'
-      ]
-      meetLink =
-        googleMeetLinks[Math.floor(Math.random() * googleMeetLinks.length)]
+    // Construct the URLs using the base URL from the .env file
+    const roomName = `room=${interviewRequestId}`;
+    const interviewerName = `name=${interviewer.firstName}+${interviewer.lastName}`;
+    const candidateName = `name=${candidate.firstName}+${candidate.lastName}`;
 
-      await Promise.all([
-        Interviewer.updateOne(
-          { 'interviewRequests._id': interviewRequestId },
-          { $set: { 'interviewRequests.$.meetLink': meetLink } }
-        ),
-        Candidate.updateOne(
-          { 'scheduledInterviews._id': interviewRequestId },
-          { $set: { 'scheduledInterviews.$.meetLink': meetLink } }
-        )
-      ])
-    }
+    // Create separate meeting links for interviewer and candidate
+    const interviewerMeetLink = `${baseUrl}/join?${roomName}&${interviewerName}`;
+    const candidateMeetLink = `${baseUrl}/join?${roomName}&${candidateName}`;
 
     // Prepare confirmation emails
     const emailData = {
       newDate: interviewRequest.date,
       newTime: interviewRequest.time,
-      meetLink,
+      interviewerMeetLink,
+      candidateMeetLink,
       interviewId: interviewRequestId,
       candidateId: candidate._id,
       interviewerId: interviewer._id,
       candidateName: candidate.firstName,
       interviewerName: interviewer.firstName,
-      url
-    }
+      url: process.env.WEBSITE_URL
+    };
 
     // Send confirmation emails
     const [candidateEmail, interviewerEmail] = await Promise.all([
@@ -571,7 +559,7 @@ export const approveRescheduleRequest = async (req, res) => {
           emailData.candidateName,
           emailData.newDate,
           emailData.newTime,
-          emailData.meetLink,
+          emailData.candidateMeetLink,
           emailData.interviewId,
           emailData.interviewerId,
           emailData.url
@@ -586,27 +574,28 @@ export const approveRescheduleRequest = async (req, res) => {
           emailData.candidateName,
           emailData.newDate,
           emailData.newTime,
-          emailData.meetLink,
+          emailData.interviewerMeetLink,
           emailData.interviewId,
           emailData.candidateId,
           emailData.url
         )
       )
-    ])
+    ]);
 
     return res.status(200).json({
       success: true,
       message: 'Reschedule confirmed and notifications sent',
-      meetLink
-    })
+      interviewerMeetLink,
+      candidateMeetLink
+    });
   } catch (error) {
-    console.error('Approval error:', error)
+    console.error('Approval error:', error);
     return res.status(500).json({
       success: false,
       message: error.message || 'Internal server error'
-    })
+    });
   }
-}
+};
 
 export const rescheduleInterviewRequest = async (req, res) => {
   try {

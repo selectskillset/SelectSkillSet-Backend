@@ -408,7 +408,7 @@ export const updateInterviewRequest = async (req, res) => {
     if (!["Approved", "Cancelled", "RescheduleRequested"].includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status. Only 'Approved' or 'Cancelled'  are allowed.",
+        message: "Invalid status. Only 'Approved' or 'Cancelled' are allowed.",
       });
     }
 
@@ -445,16 +445,9 @@ export const updateInterviewRequest = async (req, res) => {
     }
 
     if (status === "Approved") {
-      const googleMeetLinks = [
-        "https://meet.google.com/xbn-baxk-deo",
-        "https://meet.google.com/xbn-baxk-deo",
-      ];
-      const meetLink =
-        googleMeetLinks[Math.floor(Math.random() * googleMeetLinks.length)];
-
       const interviewer = await Interviewer.findOne(
         { "interviewRequests._id": interviewRequestId },
-        { email: 1, firstName: 1, "interviewRequests.$": 1 }
+        { email: 1, firstName: 1, lastName: 1, "interviewRequests.$": 1 }
       );
 
       if (!interviewer || !interviewer.email) {
@@ -489,29 +482,41 @@ export const updateInterviewRequest = async (req, res) => {
       const [emailFromTime, emailToTime] = interviewRequest.time.split(" - ");
       const rawDate = new Date(interviewRequest.date).toDateString();
       const emailDate = rawDate.replace(/GMT.*$/, "GMT");
-
-      const date = `${emailDate} `;
+      const date = `${emailDate}`;
       const time = `from ${emailFromTime} to ${emailToTime}`;
+
+      // Construct the URLs using the base URL from the .env file
+      const baseUrl = process.env.MEETING_URL;
+      const roomName = `room=${interviewRequestId}`;
+
+    
+
+      const interviewerName = `name=${interviewer.firstName}+${interviewer.lastName}`;
+      const candidateName = `name=${candidate.firstName}+${candidate.lastName}`;
+
+      // Create separate meeting links for interviewer and candidate
+      const interviewerMeetLink = `${baseUrl}/join?${roomName}&${interviewerName}`;
+      const candidateMeetLink = `${baseUrl}/join?${roomName}&${candidateName}`;
 
       const interviewerEmail = interviewerTemplate(
         interviewer.firstName,
         candidate.firstName,
         date,
         time,
-        meetLink,
+        interviewerMeetLink,
         interviewRequest._id,
         candidate._id,
-        url
+        baseUrl
       );
 
       const candidateEmail = candidateTemplate(
         candidate.firstName,
         date,
         time,
-        meetLink,
+        candidateMeetLink,
         interviewRequest._id,
         interviewer._id,
-        url
+        baseUrl
       );
 
       try {
@@ -549,6 +554,7 @@ export const updateInterviewRequest = async (req, res) => {
     });
   }
 };
+
 
 export const addCandidateFeedback = async (req, res) => {
   const { candidateId, interviewRequestId, feedback } = req.body;
@@ -904,7 +910,7 @@ export const rescheduleInterviewRequest = async (req, res) => {
 export const approveRescheduleRequest = async (req, res) => {
   try {
     const { interviewRequestId, interviewerId } = req.body;
-    const url = process.env.WEBSITE_URL;
+    const baseUrl = process.env.MEETING_URL;
 
     // Validate IDs first
     if (!mongoose.Types.ObjectId.isValid(interviewRequestId)) {
@@ -913,7 +919,6 @@ export const approveRescheduleRequest = async (req, res) => {
         message: "Invalid interview request ID",
       });
     }
-
     if (!mongoose.Types.ObjectId.isValid(interviewerId)) {
       return res.status(400).json({
         success: false,
@@ -957,52 +962,40 @@ export const approveRescheduleRequest = async (req, res) => {
     const [interviewer, candidate] = await Promise.all([
       Interviewer.findOne(
         { "interviewRequests._id": interviewRequestId },
-        { email: 1, firstName: 1, "interviewRequests.$": 1 }
-      ).populate("interviewRequests.candidateId", "email firstName"),
+        { email: 1, firstName: 1, lastName: 1, "interviewRequests.$": 1 }
+      ).populate("interviewRequests.candidateId", "email firstName lastName"),
       Candidate.findOne(
         { "scheduledInterviews._id": interviewRequestId },
-        { email: 1, firstName: 1, _id: 1 }
+        { email: 1, firstName: 1, lastName: 1, _id: 1 }
       ),
     ]);
 
     const interviewRequest = interviewer.interviewRequests[0];
 
-    // Generate meet link if not exists (same logic as candidate version)
-    let meetLink = interviewRequest.meetLink;
-    if (!meetLink) {
-      const googleMeetLinks = [
-        "https://meet.google.com/xbn-baxk-deo",
-        "https://meet.google.com/ydn-cbxl-fpo",
-      ];
-      meetLink =
-        googleMeetLinks[Math.floor(Math.random() * googleMeetLinks.length)];
+    // Construct the URLs using the base URL from the .env file
+    const roomName = `room=${interviewRequestId}`;
+    const interviewerName = `name=${interviewer.firstName}+${interviewer.lastName}`;
+    const candidateName = `name=${candidate.firstName}+${candidate.lastName}`;
 
-      await Promise.all([
-        Interviewer.updateOne(
-          { "interviewRequests._id": interviewRequestId },
-          { $set: { "interviewRequests.$.meetLink": meetLink } }
-        ),
-        Candidate.updateOne(
-          { "scheduledInterviews._id": interviewRequestId },
-          { $set: { "scheduledInterviews.$.meetLink": meetLink } }
-        ),
-      ]);
-    }
+    // Create separate meeting links for interviewer and candidate
+    const interviewerMeetLink = `${baseUrl}/join?${roomName}&${interviewerName}`;
+    const candidateMeetLink = `${baseUrl}/join?${roomName}&${candidateName}`;
 
     // Prepare confirmation emails
     const emailData = {
       newDate: interviewRequest.date,
       newTime: interviewRequest.time,
-      meetLink,
+      interviewerMeetLink,
+      candidateMeetLink,
       interviewId: interviewRequestId,
       candidateId: candidate._id,
       interviewerId: interviewer._id,
       candidateName: candidate.firstName,
       interviewerName: interviewer.firstName,
-      url,
+      url: process.env.WEBSITE_URL,
     };
 
-    // Send confirmation emails (use different templates if needed)
+    // Send confirmation emails
     const [candidateEmail, interviewerEmail] = await Promise.all([
       sendEmail(
         candidate.email,
@@ -1012,7 +1005,7 @@ export const approveRescheduleRequest = async (req, res) => {
           emailData.candidateName,
           emailData.newDate,
           emailData.newTime,
-          emailData.meetLink,
+          emailData.candidateMeetLink,
           emailData.interviewId,
           emailData.interviewerId,
           emailData.url
@@ -1027,7 +1020,7 @@ export const approveRescheduleRequest = async (req, res) => {
           emailData.candidateName,
           emailData.newDate,
           emailData.newTime,
-          emailData.meetLink,
+          emailData.interviewerMeetLink,
           emailData.interviewId,
           emailData.candidateId,
           emailData.url
@@ -1038,7 +1031,8 @@ export const approveRescheduleRequest = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Reschedule confirmed and notifications sent",
-      meetLink,
+      interviewerMeetLink,
+      candidateMeetLink,
     });
   } catch (error) {
     console.error("Approval error:", error);
